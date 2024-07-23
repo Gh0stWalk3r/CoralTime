@@ -10,6 +10,7 @@ using CoralTime.ViewModels.TimeEntries;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CoralTime.DAL.Models.Member;
 
 namespace CoralTime.BL.Services
 {
@@ -20,20 +21,17 @@ namespace CoralTime.BL.Services
 
         public IEnumerable<TimeEntryView> GetAllTimeEntries(DateTimeOffset dateStart, DateTimeOffset dateEnd)
         {
-            var memberImpersonated = MemberImpersonated; 
-            var applicationUserImpersonated = ApplicationUserImpersonated;
-
-            var timeEntriesByMemberIdAndDates = Uow.TimeEntryRepository.GetQueryWithIncludes()
-                .Where(tEntry => tEntry.MemberId == memberImpersonated.Id && dateStart <= tEntry.Date && tEntry.Date <= dateEnd)
+            var timeEntriesByMemberIdAndDates = Uow.TimeEntryRepository.GetQuery()
+                .Where(tEntry => tEntry.MemberId == BaseMemberImpersonated.Id && dateStart.DateTime <= tEntry.Date && tEntry.Date <= dateEnd.DateTime)
                 .ToList();
 
             var timeEntryViewList = new List<TimeEntryView>();
 
             foreach (var timeEntry in timeEntriesByMemberIdAndDates)
             {
-               var timeEntryView = timeEntry.GetView(applicationUserImpersonated.UserName, Mapper);
+               var timeEntryView = timeEntry.GetView(BaseMemberImpersonated.User.UserName, Mapper);
 
-                var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(ApplicationUserCurrent.IsAdmin, memberImpersonated.Id, timeEntry.ProjectId);
+                var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(BaseMemberCurrent.User.IsAdmin, BaseMemberImpersonated.Id, timeEntry.ProjectId);
 
                 var isTimeEntryLocked = IsTimeEntryLockedByProjectSettings(timeEntry.Date, timeEntry.Project, isOnlyMemberAtProject);
 
@@ -52,18 +50,43 @@ namespace CoralTime.BL.Services
         {
             var timeEntryById = GetRelatedTimeEntryById(id);
 
-            return timeEntryById.GetView(ImpersonatedUserName, Mapper);
+            return timeEntryById.GetView(BaseMemberImpersonated.User.UserName, Mapper);
         }
 
-        public TimeEntryView Create(TimeEntryView timeEntryView)
+        public TimerView GetTimeEntryTimer(DateTime? date)
+        {
+            var timeEntryTimer = Uow.TimeEntryRepository.GetQuery()
+                .FirstOrDefault(tEntry => tEntry.MemberId == BaseMemberImpersonated.Id && tEntry.TimeTimerStart > 0);
+
+            if (timeEntryTimer == null)
+            {
+                return (date == null) ?
+                     null :
+                     new TimerView
+                     {
+                         TrackedTime = GetTrackedTime(date ?? DateTime.Now.Date, BaseMemberImpersonated.Id)
+                     };
+            }
+
+            var timeEntry = timeEntryTimer.GetView(BaseMemberImpersonated.User.UserName, Mapper);
+            var trackedTime = GetTrackedTime(timeEntry.Date, timeEntry.MemberId);
+
+            return new TimerView
+            {
+                TimeEntry = timeEntry,
+                TrackedTime = trackedTime
+            };
+        }
+               
+        public TimeEntryView Create(TimeEntryView timeEntryView, Member member = null)
         {
             var timeEntry = new TimeEntry();
 
             // Check if exists related entities.
-            CheckRelatedEntities(timeEntryView, timeEntry, out var relatedMemberByName, out var relatedProjectById);
+            CheckRelatedEntities(timeEntryView, timeEntry, out var relatedMemberByName, out var relatedProjectById, member: member);
 
             // Check Lock TimeEntries: User cannot Create TimeEntry, if enable Lock TimeEntry in Project settings.  
-            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(ApplicationUserCurrent.IsAdmin, relatedMemberByName.Id, timeEntry.ProjectId);
+            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject((member ?? BaseMemberCurrent).User.IsAdmin, relatedMemberByName.Id, timeEntry.ProjectId);
             CheckLockTimeEntryByProjectSettings(timeEntryView.Date, relatedProjectById, isOnlyMemberAtProject);
 
             // Check correct timing values from TimeEntryView.
@@ -79,11 +102,11 @@ namespace CoralTime.BL.Services
 
             try
             {
-                Uow.TimeEntryRepository.Insert(timeEntry);
-                Uow.Save();
+                Uow.TimeEntryRepository.Insert(timeEntry, member?.UserId);
+                Uow.Save(memberId: member?.Id);
 
                 var timeEntryWithUpdateRelatedEntities = Uow.TimeEntryRepository.LinkedCacheGetById(timeEntry.Id);
-                return timeEntryWithUpdateRelatedEntities.GetView(ImpersonatedUserName, Mapper);
+                return timeEntryWithUpdateRelatedEntities.GetView((member ?? BaseMemberImpersonated).User.UserName, Mapper);
             }
             catch (Exception e)
             {
@@ -101,7 +124,7 @@ namespace CoralTime.BL.Services
             CheckRelatedEntities(timeEntryView, timeEntryById, out var relatedMemberByName, out var relatedProjectById);
 
             // Check Lock TimeEntries: User cannot Create TimeEntry, if enable Lock TimeEntry in Project settings.  
-            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(ApplicationUserCurrent.IsAdmin, relatedMemberByName.Id, relatedProjectById.Id);
+            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(BaseMemberCurrent.User.IsAdmin, relatedMemberByName.Id, relatedProjectById.Id);
             CheckLockTimeEntryByProjectSettings(timeEntryView.Date, relatedProjectById, isOnlyMemberAtProject);
 
             // Check correct timing values from TimeEntryView.
@@ -115,17 +138,10 @@ namespace CoralTime.BL.Services
 
             #region Update TimeEntry in DB.
 
-            try
-            {
-                Uow.TimeEntryRepository.Update(timeEntryById);
-                Uow.Save();
+            Uow.TimeEntryRepository.Update(timeEntryById);
+            Uow.Save();
 
-                return timeEntryById.GetView(ImpersonatedUserName, Mapper);
-            }
-            catch (Exception e)
-            {
-                throw new CoralTimeDangerException("An error occurred while updating TimeEntry", e);
-            }
+            return timeEntryById.GetView(BaseMemberImpersonated.User.UserName, Mapper);
 
             #endregion
         }
@@ -146,20 +162,13 @@ namespace CoralTime.BL.Services
             CheckRelatedEntities(timeEntryView, timeEntryById, out var relatedMemberByName, out var relatedProjectById);
 
             // Check Lock TimeEntries: User cannot Create TimeEntry, if enable Lock TimeEntry in Project settings.  
-            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(ApplicationUserCurrent.IsAdmin, relatedMemberByName.Id, relatedProjectById.Id);
+            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(BaseMemberCurrent.User.IsAdmin, relatedMemberByName.Id, relatedProjectById.Id);
             CheckLockTimeEntryByProjectSettings(timeEntryView.Date, relatedProjectById, isOnlyMemberAtProject);
 
             #region Delete TimeEntry from DB.
 
-            try
-            {
-                Uow.TimeEntryRepository.Delete(timeEntryById.Id);
-                Uow.Save();
-            }
-            catch (Exception e)
-            {
-                throw new CoralTimeDangerException("An error occurred while deleting the TimeEntry", e);
-            }
+            Uow.TimeEntryRepository.Delete(timeEntryById.Id);
+            Uow.Save();
 
             #endregion
         }
@@ -243,10 +252,10 @@ namespace CoralTime.BL.Services
 
         #region Added Methods for Checks.
 
-        private void CheckRelatedEntities(TimeEntryView timeEntryView, TimeEntry timeEntry, out Member relatedMemberByName, out Project relatedProjectById)
+        private void CheckRelatedEntities(TimeEntryView timeEntryView, TimeEntry timeEntry, out Member relatedMemberByName, out Project relatedProjectById, Member member = null)
         {
-            relatedMemberByName = MemberImpersonated;
-            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject(ApplicationUserCurrent.IsAdmin, MemberImpersonated.Id, timeEntry.ProjectId);
+            relatedMemberByName = member ?? BaseMemberImpersonated;
+            var isOnlyMemberAtProject = !IsAdminOrManagerOfProject((member ?? BaseMemberCurrent).User.IsAdmin, (member ?? BaseMemberImpersonated).Id, timeEntry.ProjectId);
 
             relatedProjectById = GetRelatedProjectById(timeEntryView.ProjectId, isOnlyMemberAtProject);
             var relatedMemberById = GetRelatedMemberById(timeEntryView.MemberId, isOnlyMemberAtProject);
@@ -268,17 +277,12 @@ namespace CoralTime.BL.Services
             var memberProjectRole = Uow.MemberProjectRoleRepository.LinkedCacheGetList()
                 .FirstOrDefault(r => r.MemberId == memberId && r.ProjectId == projectId && r.RoleId == managerRoleId);
 
-            if (memberProjectRole == null)
-            {
-                return false;
-            }
-
-            return true;
+            return memberProjectRole != null;
         }
 
         private void CheckTotalTimeAtDay(Member memberByName, TimeEntryView timeEntryView, TimeEntry timeEntryById = null)
         {
-            var totalTimeForDay = Uow.TimeEntryRepository.GetQueryWithIncludes()
+            var totalTimeForDay = Uow.TimeEntryRepository.GetQuery(withIncludes: false)
                 .Where(tEntry => tEntry.MemberId == memberByName.Id && tEntry.Date.Date == timeEntryView.Date.Date)
                 .Sum(tEntry => tEntry.TimeActual);
 
@@ -309,11 +313,11 @@ namespace CoralTime.BL.Services
             }
         }
 
-        private void CheckCorrectTimingValues(int? timeFrom, int? timeTo, int timeActual)
+        private static void CheckCorrectTimingValues(int? timeFrom, int? timeTo, int timeActual)
         {
             var isNullTimeFrom = timeFrom == null;
             var isNullTimeTo = timeTo == null;
-
+            var errorMessage = "";
             var isPositiveTimeFrom = !isNullTimeFrom && timeFrom >= 0;
             var isPositiveTimeTo = !isNullTimeTo && timeTo >= 0;
             var isPositiveTimeActual = timeActual >= 0;
@@ -335,8 +339,6 @@ namespace CoralTime.BL.Services
 
                 if (!isTomeFromLessThanTomeTo || !isTimeToLessThan24h || !isTimeFromLessThan24h)
                 {
-                    var errorMessage = "";
-
                     if (!isTimeToLessThan24h)
                     {
                         errorMessage += "TimeTo Less Than 24 hours.";
@@ -356,38 +358,36 @@ namespace CoralTime.BL.Services
                 }
             }
 
-            if (!isSetOnlyActualTime && !isSetTimeFromTimeToActualTime)
+            if (isSetOnlyActualTime || isSetTimeFromTimeToActualTime)
+                return;
+
+            errorMessage = "Bad case for set: ";
+
+            if (!isSetOnlyActualTime)
             {
-                var errorMessage = "Bad case for set: ";
-
-                if (!isSetOnlyActualTime)
-                {
-                    errorMessage += ("only single Actual Time.");
-                }
-
-                if (!isSetTimeFromTimeToActualTime)
-                {
-                    errorMessage += "all at once properties (TimeFrom, TimeTo, Actual Time).";
-                }
-
-                throw new CoralTimeDangerException(errorMessage);
+                errorMessage += ("only single Actual Time.");
             }
+
+            errorMessage += "all at once properties (TimeFrom, TimeTo, Actual Time).";
+
+            throw new CoralTimeDangerException(errorMessage);
+
         }
 
-        private void CheckLockTimeEntryByProjectSettings(DateTime timeEntryDateEditing, Project projectById, bool isOnlyMemberAtProject)
+        private static void CheckLockTimeEntryByProjectSettings(DateTime timeEntryDateEditing, Project projectById, bool isOnlyMemberAtProject)
         {
-            if (projectById.IsTimeLockEnabled && isOnlyMemberAtProject)
-            {
-                var isTimeEntryLocked = IsTimeEntryLockedByProjectSettings(timeEntryDateEditing, projectById, isOnlyMemberAtProject);
+            if (!projectById.IsTimeLockEnabled || !isOnlyMemberAtProject) 
+                return;
+            
+            var isTimeEntryLocked = IsTimeEntryLockedByProjectSettings(timeEntryDateEditing, projectById, isOnlyMemberAtProject);
 
-                if (isTimeEntryLocked)
-                {
-                    throw new CoralTimeDangerException("Date for creating or updating TimeEntry is too late.");
-                }
+            if (isTimeEntryLocked)
+            {
+                throw new CoralTimeDangerException("Date for creating or updating TimeEntry is too late.");
             }
         }
 
-        private bool IsTimeEntryLockedByProjectSettings(DateTime timeEntryDateEditing, Project projectById, bool isOnlyMemberAtProject)
+        private static bool IsTimeEntryLockedByProjectSettings(DateTime timeEntryDateEditing, Project projectById, bool isOnlyMemberAtProject)
         {
             var isTimeEntryLocked = false;
 
@@ -413,7 +413,16 @@ namespace CoralTime.BL.Services
 
             #endregion
 
-            #region #2. Update other values.
+            #region #2: Round time from timer 
+            
+            if (timeEntryView.TimeOptions.TimeTimerStart == -1)
+            {
+                RoundTimeEntryTime(timeEntryView);
+            }
+            
+            #endregion
+            
+            #region #3. Update other values.
 
             timeEntry.Date = timeEntryView.Date.Date;
 
@@ -425,8 +434,34 @@ namespace CoralTime.BL.Services
 
             timeEntry.Description = timeEntryView.Description;
             timeEntry.IsFromToShow = timeEntryView.TimeOptions.IsFromToShow;
+            timeEntry.WorkItemId = string.IsNullOrWhiteSpace(timeEntryView.WorkItemId) ? timeEntry.WorkItemId : timeEntryView.WorkItemId;
 
             #endregion
+        }
+
+        private static void RoundTimeEntryTime(TimeEntryView timeEntryView)
+        {
+            var roundActualTime = (timeEntryView.TimeValues.TimeActual < Constants.SecondsInMinute && timeEntryView.TimeValues.TimeActual > 0) 
+                    ? Constants.SecondsInMinute 
+                    : RoundTime(timeEntryView.TimeValues.TimeActual);
+            
+            if (timeEntryView.TimeValues.TimeActual == roundActualTime) 
+                return;
+            timeEntryView.TimeValues.TimeActual = roundActualTime;
+            timeEntryView.TimeValues.TimeTo = RoundTime(timeEntryView.TimeValues.TimeTo ?? 0);
+            timeEntryView.TimeValues.TimeFrom = timeEntryView.TimeValues.TimeTo - roundActualTime;
+        }
+
+        private static int RoundTime(int time)
+        {
+            return time - time % Constants.SecondsInMinute;
+        }
+
+        private int GetTrackedTime(DateTime date, int memberId)
+        {
+            return Uow.TimeEntryRepository.GetQuery(withIncludes: false)
+                .Where(x => x.Date == date && x.MemberId == memberId)
+                .Sum(x => x.TimeActual);
         }
 
         #endregion

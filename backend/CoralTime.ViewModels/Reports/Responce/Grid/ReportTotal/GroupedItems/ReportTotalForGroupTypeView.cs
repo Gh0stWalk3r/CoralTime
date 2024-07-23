@@ -1,6 +1,7 @@
-﻿using Newtonsoft.Json;
+﻿using CoralTime.ViewModels.Reports.Responce.Grid.ReportTotal.GroupedItems.ReportTotalFor;
+using Newtonsoft.Json;
 
-namespace CoralTime.ViewModels.Reports
+namespace CoralTime.ViewModels.Reports.Responce.Grid.ReportTotal.GroupedItems
 {
     public class ReportTotalForGroupTypeView : ReportTotalForView
     {
@@ -13,6 +14,6 @@ namespace CoralTime.ViewModels.Reports
             DateFormatId = dateFormatId;
         }
 
-        public ReportGroupByType GroupByType { get; }
+        public ReportGroupByType GroupByType { get; set; }
     }
 }

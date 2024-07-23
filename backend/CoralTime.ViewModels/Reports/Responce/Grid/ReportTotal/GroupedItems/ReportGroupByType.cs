@@ -1,7 +1,7 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
+using Newtonsoft.Json;
 
-namespace CoralTime.ViewModels.Reports
+namespace CoralTime.ViewModels.Reports.Responce.Grid.ReportTotal.GroupedItems
 {
     public class ReportGroupByType
     {
@@ -28,10 +28,14 @@ namespace CoralTime.ViewModels.Reports
 
         [JsonIgnore] public int MemberId { get; set; }
         public string MemberName { get; set; }
+        
+        public string MemberUrlIcon { get; set; }
 
         public DateTime? Date { get; set; }
 
         [JsonIgnore] public int ClientId { get; set; }
         public string ClientName { get; set; }
+
+        public int? WorkingHoursPerDay { get; set; }
     }
 }

@@ -10,14 +10,15 @@ import {
 	CalendarModule
 } from 'primeng/primeng';
 import { ReadMoreComponent } from './read-more/read-more.component';
-import { TranslateModule } from '@ngx-translate/core';
 import { DirectivesModule } from './directives/directives.module';
-import { LoadingBarComponent } from './loading-indicator/loading-bar.component';
 import { DatepickerModule } from './form/datepicker/datepicker.module';
 import { MenuModule } from './menu/menu.module';
 import { SharedFormModule } from './form/shared-form.module';
 import { UserPicComponent } from './user-pic/user-pic.component';
 import { ConfirmationComponent } from './confirmation/confirmation.component';
+import { ChartComponent } from './chart/chart.component';
+import { TranslateModule } from '@ngx-translate/core';
+import { MarkdownModule, MarkedOptions } from 'ngx-markdown';
 
 @NgModule({
 	imports: [
@@ -33,12 +34,23 @@ import { ConfirmationComponent } from './confirmation/confirmation.component';
 		DataTableModule,
 		MenuModule,
 		SharedFormModule,
+		MarkdownModule.forRoot({
+			markedOptions: {
+				provide: MarkedOptions,
+				useValue: {
+					breaks: true,
+					headerIds: false,
+					pedantic: true,
+					sanitize: true,
+				},
+			},
+		}),
 	],
 	declarations: [
 		ReadMoreComponent,
-		LoadingBarComponent,
 		ConfirmationComponent,
-		UserPicComponent
+		UserPicComponent,
+		ChartComponent,
 	],
 	exports: [
 		CommonModule,
@@ -49,9 +61,6 @@ import { ConfirmationComponent } from './confirmation/confirmation.component';
 		DropdownModule,
 		CalendarModule,
 		ReadMoreComponent,
-		TranslateModule,
-		LoadingBarComponent,
-		TranslateModule,
 		DirectivesModule,
 		DatepickerModule,
 		DataTableModule,
@@ -59,6 +68,9 @@ import { ConfirmationComponent } from './confirmation/confirmation.component';
 		SharedFormModule,
 		UserPicComponent,
 		ConfirmationComponent,
+		ChartComponent,
+		TranslateModule,
+		MarkdownModule,
 	]
 })
 

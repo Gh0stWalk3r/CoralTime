@@ -44,9 +44,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-using IdentityServer4.Test;
+using CoralTime.BL.Services.Notifications;
+using CoralTime.ViewModels.MemberActions;
 using Microsoft.IdentityModel.Tokens;
 using static CoralTime.Common.Constants.Constants.Routes.OData;
+using Microsoft.IdentityModel.Logging;
+using CoralTime.ViewModels.Vsts;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CoralTime
 {
@@ -65,16 +69,17 @@ namespace CoralTime
             if (useMySql)
             {
                 // Add MySQL support (At first create DB on MySQL server.)
-                services.AddDbContext<AppDbContext>(options =>
+                services.AddDbContextPool<AppDbContext>(options =>
                     options.UseMySql(Configuration.GetConnectionString("DefaultConnectionMySQL"),
                     b => b.MigrationsAssembly("CoralTime.MySqlMigrations")));
             }
             else
             {
                 // Sql Server
-                services.AddDbContext<AppDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
+                services.AddDbContextPool<AppDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
             }
-            
+
+            IdentityModelEventSource.ShowPII = true; 
             services.AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
@@ -94,7 +99,7 @@ namespace CoralTime
             AddApplicationServices(services);
             services.AddMemoryCache();
             services.AddAutoMapper();
-            services.AddMvc();
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2); 
 
             // Add OData
             services.AddOData();
@@ -108,7 +113,14 @@ namespace CoralTime
                 {
                     inputFormatter.SupportedMediaTypes.Add(new MediaTypeHeaderValue("application/prs.odatatestxx-odata"));
                 }
+
+                options.EnableEndpointRouting = false; // TODO: Remove when OData does not causes exceptions anymore
+            })
+            .AddJsonOptions(options =>
+            {
+                options.SerializerSettings.Converters.Insert(0, new TrimmingStringConverter());
             });
+
             SetupIdentity(services);
             services.AddSwaggerGen(c =>
             {
@@ -121,10 +133,6 @@ namespace CoralTime
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
-#if DEBUG
-            loggerFactory.AddConsole();
-#endif
-
             //add NLog to ASP.NET Core
             loggerFactory.AddNLog();
 
@@ -137,6 +145,14 @@ namespace CoralTime
                 app.UseDatabaseErrorPage();
             }
 
+            // Disable ApplicationInsights messages if it isn't configured
+            var isApplicationInsights = Configuration.GetValue<string>("ApplicationInsights:InstrumentationKey") != null;
+            if (!isApplicationInsights)
+            {
+                var configuration = app.ApplicationServices.GetService<Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration>();
+                configuration.DisableTelemetry = true;
+            }
+
             SetupAngularRouting(app);
 
             app.UseDefaultFiles();
@@ -146,7 +162,7 @@ namespace CoralTime
 
             app.UseStaticFiles(new StaticFileOptions
             {
-                FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "StaticFiles")),
+                FileProvider = new PhysicalFileProvider(Path.Combine(Environment.CurrentDirectory, "StaticFiles")),
                 RequestPath = "/StaticFiles"
             });
 
@@ -158,6 +174,9 @@ namespace CoralTime
             // Add OData
             var edmModel = SetupODataEntities(app.ApplicationServices);
 
+            //Make sure you add app.UseCors before app.UseMvc otherwise the request will be finished before the CORS middleware is applied
+            app.UseCors("AllowAllOrigins");
+
             app.UseMvc();
 
             app.UseMvc(routeBuilder =>
@@ -166,8 +185,6 @@ namespace CoralTime
                 routeBuilder.MapODataServiceRoute("ODataRoute", BaseODataRoute, edmModel);
                 routeBuilder.EnableDependencyInjection();
             });
-
-            app.UseCors("AllowAllOrigins");
 
             app.UseSwagger();
 
@@ -212,9 +229,12 @@ namespace CoralTime
             services.AddScoped<IReportExportService, ReportsExportService>();
             services.AddScoped<IReportsSettingsService, ReportsSettingsService>();
             services.AddScoped<IImageService, ImageService>();
-            services.AddScoped<IRefreshDataBaseService, RefreshDataBaseService>();
             services.AddScoped<CheckSecureHeaderServiceFilter>();
             services.AddScoped<CheckSecureHeaderNotificationFilter>();
+            services.AddScoped<IAdminService, AdminService>();
+            services.AddScoped<IMemberActionService, MemberActionService>();
+            services.AddScoped<IVstsService, VstsService>();
+            services.AddScoped<IVstsAdminService, VstsService>();
         }
 
         private static void SetupAngularRouting(IApplicationBuilder app)
@@ -260,19 +280,18 @@ namespace CoralTime
                 options.User.RequireUniqueEmail = true;
             });
 
-            var accessTokenLifetime = int.Parse(Configuration["AccessTokenLifetime"]);
-            var refreshTokenLifetime = int.Parse(Configuration["RefreshTokenLifetime"]);
-            var slidingRefreshTokenLifetime = int.Parse(Configuration["SlidingRefreshTokenLifetime"]);
+
 
             var tokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidIssuer = Configuration["Authority"],
                 ValidateAudience = true,
-                ValidAudience = "WebAPI",
+                ValidAudience = Constants.Authorization.WebApiScope,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };
+            var clients = Config.GetClients(Configuration);
 
             if (isDemo)
             {
@@ -280,7 +299,7 @@ namespace CoralTime
                     .AddDeveloperSigningCredential()
                     .AddInMemoryIdentityResources(Config.GetIdentityResources())
                     .AddInMemoryApiResources(Config.GetApiResources())
-                    .AddInMemoryClients(Config.GetClients(accessTokenLifetime: accessTokenLifetime, refreshTokenLifetime: refreshTokenLifetime, slidingRefreshTokenLifetime: slidingRefreshTokenLifetime))
+                    .AddInMemoryClients(clients)
                     .AddAspNetIdentity<ApplicationUser>()
                     .AddResourceOwnerValidator<ResourceOwnerPasswordValidator>()
                     .AddProfileService<IdentityWithAdditionalClaimsProfileService>();
@@ -292,7 +311,7 @@ namespace CoralTime
                 services.AddIdentityServer()
                     .AddInMemoryIdentityResources(Config.GetIdentityResources())
                     .AddInMemoryApiResources(Config.GetApiResources())
-                    .AddInMemoryClients(Config.GetClients(accessTokenLifetime: accessTokenLifetime, refreshTokenLifetime: refreshTokenLifetime, slidingRefreshTokenLifetime: slidingRefreshTokenLifetime))
+                    .AddInMemoryClients(clients)
                     .AddAspNetIdentity<ApplicationUser>()
                     .AddResourceOwnerValidator<ResourceOwnerPasswordValidator>()
                     .AddSigningCredential(cert)
@@ -309,22 +328,19 @@ namespace CoralTime
 
             services.AddAuthentication(options =>
             {
-                options.DefaultAuthenticateScheme = "Bearer";
-                options.DefaultChallengeScheme = "Bearer";
+                options.DefaultAuthenticateScheme = Constants.Authorization.AuthenticateScheme;
+                options.DefaultChallengeScheme = Constants.Authorization.AuthenticateScheme;
                 options.DefaultForbidScheme = "Identity.Application";
             }).AddJwtBearer(options =>
                 {
                     // name of the API resource
-                    options.Audience = "WebAPI";
+                    options.Audience = Constants.Authorization.WebApiScope;
                     options.Authority = Configuration["Authority"];
                     options.RequireHttpsMetadata = false;
                     options.TokenValidationParameters = tokenValidationParameters;
                 });
 
-            services.AddAuthorization(options =>
-            {
-                Config.CreateAuthorizatoinOptions(options);
-            });
+            services.AddAuthorization(Config.CreateAuthorizationOptions);
         }
 
         private static IEdmModel SetupODataEntities(IServiceProvider serviceProvider)
@@ -340,6 +356,8 @@ namespace CoralTime
             builder.EntitySet<SettingsView>("Settings");
             builder.EntitySet<ManagerProjectsView>("ManagerProjects");
             builder.EntitySet<ProjectNameView>("ProjectsNames");
+            builder.EntitySet<MemberActionView>("MemberActions");
+            builder.EntitySet<VstsProjectIntegrationView>("VstsProjectIntegration");
             builder.EnableLowerCamelCase();
             return builder.GetEdmModel();
         }

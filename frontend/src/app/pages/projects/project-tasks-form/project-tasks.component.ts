@@ -1,12 +1,11 @@
 import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
-import { Project } from '../../../models/project';
-import { NotificationService } from '../../../core/notification.service';
-import { Observable } from 'rxjs';
-import { TasksService } from '../../../services/tasks.service';
-import { Task } from '../../../models/task';
-import { PagedResult } from '../../../services/odata/query';
 import { Subject } from 'rxjs/Subject';
+import { Project } from '../../../models/project';
+import { Task } from '../../../models/task';
 import { ROWS_ON_PAGE } from '../../../core/constant.service';
+import { PagedResult } from '../../../services/odata';
+import { NotificationService } from '../../../core/notification.service';
+import { TasksService } from '../../../services/tasks.service';
 
 @Component({
 	selector: 'ct-project-tasks',
@@ -40,8 +39,7 @@ export class ProjectTasksComponent implements OnInit {
 		this.tasksSubject.debounceTime(500).switchMap(() => {
 			return this.tasksService.getProjectTasks(this.tasksLastEvent, this.filterStr, this.project.id);
 		})
-			.subscribe(
-				(res: PagedResult<Task>) => {
+			.subscribe((res: PagedResult<Task>) => {
 					if (!this.tasksPagedResult || !this.tasksLastEvent.first || this.updatingGrid) {
 						this.tasksPagedResult = res;
 					} else {
@@ -54,8 +52,9 @@ export class ProjectTasksComponent implements OnInit {
 
 					this.tasksLastEvent.first = this.tasksPagedResult.data.length;
 					this.updatingGrid = false;
+					this.checkIsAllTasks();
 				},
-				error => this.notificationService.danger('Error loading tasks.')
+				() => this.notificationService.danger('Error loading tasks.')
 			);
 	}
 
@@ -68,44 +67,43 @@ export class ProjectTasksComponent implements OnInit {
 		if (error) {
 			this.notificationService.danger('Error creating adding task.');
 		} else {
-			this.filterStr = '';
 			this.updateTasks(null, true);
 			this.notificationService.success('Task successfully assigned.');
 		}
 	}
 
-	removeTask(task: Task): void {
-		let observable: Observable<any>;
-
-		observable = this.tasksService.toggleActive(task);
-		observable.subscribe(
-			() => {
-				this.filterStr = '';
-				this.updateTasks(null, true);
-				this.notificationService.success('Task status has been successfully removed from projects.');
-			}
-		);
+	removeTask(task: Task, target: HTMLElement): void {
+		target.classList.add('ct-loading');
+		this.tasksService.toggleActive(task)
+			.subscribe(() => {
+					this.updateTasks(null, true);
+					this.notificationService.success('Task has been successfully removed from projects.');
+				},
+				() => {
+					target.classList.remove('ct-loading');
+					this.notificationService.danger('Error removing task.');
+				}
+			);
 	}
 
 	onEndScroll(): void {
-		this.checkIsAllTasks();
-
 		if (!this.isAllTasks) {
 			this.updateTasks();
 		}
 	}
 
 	updateTasks(event = null, updatePage?: boolean): void {
-		this.checkIsAllTasks();
-
 		if (event) {
 			this.tasksLastEvent = event;
-			this.isAllTasks = false;
 		}
 		if (updatePage) {
 			this.updatingGrid = updatePage;
 			this.tasksLastEvent.first = 0;
+		}
+		if (event || updatePage) {
 			this.isAllTasks = false;
+			this.tasksPagedResult = null;
+			this.resizeObservable.next(true);
 		}
 		this.tasksLastEvent.rows = ROWS_ON_PAGE;
 
@@ -129,6 +127,6 @@ export class ProjectTasksComponent implements OnInit {
 		let grid = this.gridContainer.nativeElement;
 		let wrappers = grid.querySelectorAll('.ui-datatable-scrollable-body');
 
-		wrappers[0].setAttribute('style', 'max-height: calc(90vh - 176px - ' + tasksNumber * 40 + 'px)');
+		wrappers[0].setAttribute('style', 'max-height: calc(100vh - 290px - ' + tasksNumber * 40 + 'px)');
 	}
 }

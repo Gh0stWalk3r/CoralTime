@@ -1,4 +1,8 @@
 ﻿using CoralTime.DAL.Models;
+using CoralTime.DAL.Models.LogChanges;
+using CoralTime.DAL.Models.Member;
+using CoralTime.DAL.Models.ReportsSettings;
+using CoralTime.DAL.Models.Vsts;
 using IdentityServer4.EntityFramework.Entities;
 using IdentityServer4.EntityFramework.Interfaces;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -36,6 +40,14 @@ namespace CoralTime.DAL
 
         public DbSet<ReportsSettings> ReportsSettings { get; set; }
 
+        public DbSet<MemberAction> MemberActions { get; set; }
+
+        public DbSet<VstsUser> VstsUsers { get; set; }
+
+        public DbSet<VstsProject> VstsProjects { get; set; }
+
+        public DbSet<VstsProjectUser> VstsProjectUsers { get; set; }
+
         public Task<int> SaveChangesAsync()
         {
             return base.SaveChangesAsync();
@@ -53,6 +65,9 @@ namespace CoralTime.DAL
 
             builder.Entity<TimeEntry>()
                 .HasOne(p => p.TaskType);
+
+            builder.Entity<TimeEntry>()
+                .HasIndex(t => new { t.MemberId, t.Date });
 
             builder.Entity<Member>()
                 .HasOne(p => p.User);
@@ -111,6 +126,30 @@ namespace CoralTime.DAL
 
             builder.Entity<ReportsSettings>()
                 .HasIndex(t => new { ReportsSettingsId = t.MemberId, t.QueryName }).IsUnique();
+
+            builder.Entity<MemberAction>()
+                .HasOne(p => p.Member);
+
+            builder.Entity<VstsProject>()
+                .HasOne(p => p.Project);
+
+            builder.Entity<VstsUser>()
+                .HasOne(u => u.Member);
+
+            builder.Entity<VstsProjectUser>()
+                .HasIndex(t => new
+                {
+                    t.VstsUserId,
+                    t.VstsProjectId
+                }).IsUnique();
+
+            builder.Entity<VstsProjectUser>()
+                .HasOne(pu=> pu.VstsProject)
+                .WithMany(p=> p.VstsProjectUsers).HasForeignKey(k=> k.VstsProjectId).OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<VstsProjectUser>()
+                .HasOne(pu => pu.VstsUser)
+                .WithMany(p => p.VstsProjectUsers).HasForeignKey(k => k.VstsUserId).OnDelete(DeleteBehavior.Restrict);
 
             base.OnModelCreating(builder);
         }

@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using CoralTime.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -41,9 +41,10 @@ namespace CoralTime
 
         public static IWebHostBuilder CreateDefaultBuilder(string[] args)
         {
+            CurrentDirectoryHelpers.SetCurrentDirectory();
             var builder = new WebHostBuilder()
-                .UseKestrel()
-                .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseApplicationInsights()
+                .UseContentRoot(Environment.CurrentDirectory)
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     var env = hostingContext.HostingEnvironment;
@@ -70,16 +71,34 @@ namespace CoralTime
                 })
                 .ConfigureLogging((hostingContext, logging) =>
                 {
+                    logging.ClearProviders();
+                    logging.SetMinimumLevel(LogLevel.Trace);
                     logging.AddConfiguration(hostingContext.Configuration.GetSection("Logging"));
                     logging.AddConsole();
                     logging.AddDebug();
                 })
-                .UseIISIntegration()
                 .UseDefaultServiceProvider((context, options) =>
                 {
                     options.ValidateScopes = context.HostingEnvironment.IsDevelopment();
                 });
 
+            var isIIS = (Environment.GetEnvironmentVariable("ASPNETCORE_IIS")?? "0") == "1";
+            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            if (isDevelopment)
+            {
+                if (isIIS)
+                {
+                    builder.UseIIS();
+                }
+                else
+                {
+                    builder.UseKestrel();
+                }
+            }
+            else
+            {
+                builder.UseIIS();
+            }
             return builder;
         }
     }

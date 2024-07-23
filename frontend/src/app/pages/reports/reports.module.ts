@@ -17,7 +17,7 @@ import { ConfirmationComponent } from '../../shared/confirmation/confirmation.co
 @NgModule({
 	imports: [
 		SharedModule,
-		ReportsRoutingModule,
+		ReportsRoutingModule
 	],
 	declarations: [
 		ReportsComponent,

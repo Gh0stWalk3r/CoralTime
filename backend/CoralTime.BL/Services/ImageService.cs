@@ -4,17 +4,16 @@ using CoralTime.BL.Interfaces;
 using CoralTime.Common.Constants;
 using CoralTime.Common.Exceptions;
 using CoralTime.DAL.ConvertViewToModel;
-using CoralTime.DAL.Models;
 using CoralTime.DAL.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using CoralTime.DAL.Models.Member;
+using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace CoralTime.BL.Services
 {
@@ -24,9 +23,11 @@ namespace CoralTime.BL.Services
 
         private readonly IConfiguration _config;
 
-        private string PathAvatars() => $"{Path.Combine(Directory.GetCurrentDirectory(), Constants.Folders.StaticFilesFolder, Constants.Folders.AvatarFolder)}";
+        private static string PathAvatars() => $"{Path.Combine(Environment.CurrentDirectory, Constants.Folders.StaticFilesFolder, Constants.Folders.AvatarFolder)}";
 
-        private string PathIcons() => $"{Path.Combine(Directory.GetCurrentDirectory(), Constants.Folders.StaticFilesFolder, Constants.Folders.IconFolder)}";
+        private static string PathIcons() => $"{Path.Combine(Environment.CurrentDirectory, Constants.Folders.StaticFilesFolder, Constants.Folders.IconFolder)}";
+        
+
         
         public ImageService(UnitOfWork uow, IMapper mapper, IConfiguration config, IHttpContextAccessor httpContextAccessor)
             : base(uow, mapper)
@@ -45,14 +46,17 @@ namespace CoralTime.BL.Services
         {
             var imageFileName = Uow.MemberImageRepository.LinkedCacheGetByMemberId(memberId)?.FileNameImage;
 
-            var imagePath = string.Empty;
+            string imagePath = null;
 
             if (imageFileName == null)
             {
-                var memberEmail = Uow.MemberRepository.LinkedCacheGetById(memberId).User?.Email;
-
-                var imageSize = GetValueImageByType(imageType, Constants.ImageTypeSizeAvatar, Constants.ImageTypeSizeIcon);
-                imagePath = $"http://www.gravatar.com/avatar/{GetMD5(memberEmail)}?d={"robohash"}&s={imageSize}";
+                var memberEmail = Uow.MemberRepository.LinkedCacheGetById(memberId)?.User?.Email;
+                if (memberEmail != null)
+                {
+                    var imageSize = GetValueImageByType(imageType, Constants.ImageTypeSizeAvatar.ToString(),
+                        Constants.ImageTypeSizeIcon.ToString());
+                    imagePath = $"{Constants.GravatarUrl}{GetMd5(memberEmail)}?d={Constants.GravatarType}&s={imageSize}";
+                }
             }
             else
             {
@@ -63,33 +67,26 @@ namespace CoralTime.BL.Services
             return imagePath;
         }
 
-        private string GetValueImageByType(string imageType, string valueImageForTypeAvatar, string valueImageForTypeIcon)
+        private static string GetValueImageByType(string imageType, string valueImageForTypeAvatar, string valueImageForTypeIcon)
         {
-            string valueImageByType;
-
             switch (imageType)
             {
                 case Constants.ImageTypeAvatar:
                 {
-                    valueImageByType = valueImageForTypeAvatar;
-                    break;
+                    return valueImageForTypeAvatar;
                 }
                 case Constants.ImageTypeIcon:
                 {
-                    valueImageByType = valueImageForTypeIcon;
-                    break;
+                    return valueImageForTypeIcon;
                 }
                 default:
                 {
-                    valueImageByType = string.Empty;
-                    break;
+                    return string.Empty;
                 }
             }
-
-            return valueImageByType;
         }
 
-        private static string GetMD5(string email)
+        private static string GetMd5(string email)
         {
             byte[] data;
 
@@ -116,7 +113,7 @@ namespace CoralTime.BL.Services
 
         public string UploadImage(IFormFile uploadedFile)
         {
-            var member = MemberImpersonated;
+            var member = BaseMemberImpersonated;
 
             CheckFileNameAndSize(uploadedFile);
 
@@ -145,7 +142,7 @@ namespace CoralTime.BL.Services
 
         private static MemberImage CreateUpdatedMemberImage(IFormFile uploadedFile, Member member)
         {
-            (byte[] byteArrayAvatar, byte[] byteArrayIcon) = CreateByteArrayFromUploadedImageFile(uploadedFile);
+            var (byteArrayAvatar, byteArrayIcon) = CreateByteArrayFromUploadedImageFile(uploadedFile);
 
             var newMemberImage = new MemberImage
             {
@@ -194,24 +191,24 @@ namespace CoralTime.BL.Services
             byte[] byteArrayIcon;
             using (var memoryStream = new MemoryStream())
             {
-                ResizeImage(byteArrayAvatar).Save(memoryStream, ImageFormat.Jpeg);
+                ResizeImage(byteArrayAvatar, Constants.ImageTypeSizeIcon, Constants.ImageTypeSizeIcon).Save(memoryStream, ImageFormat.Jpeg);
                 byteArrayIcon = memoryStream.ToArray();
             }
 
             return (byteArrayAvatar, byteArrayIcon);
         }
 
-        private static Image ResizeImage(byte[] byteArrayOfImageFile)
+        private static Image ResizeImage(byte[] byteArrayOfImageFile, int horizontalSize, int verticalSize)
         {
             var imageResize = Image.FromStream(new MemoryStream(byteArrayOfImageFile));
 
-            imageResize = imageResize.GetThumbnailImage(40, 40, () => false, IntPtr.Zero);
+            imageResize = imageResize.GetThumbnailImage(horizontalSize, verticalSize, () => false, IntPtr.Zero);
             return imageResize;
         }
 
         public void SaveImagesFromDbToFolder()
         {
-            var memberImages = Uow.MemberImageRepository.GetQueryAsNoTraking().ToArray();
+            var memberImages = Uow.MemberImageRepository.GetQuery(withIncludes: false, asNoTracking : true);
 
             foreach (var memberImage in memberImages)
             {
@@ -219,17 +216,17 @@ namespace CoralTime.BL.Services
             }
         }
 
-        private void SaveMemberImageToFolder(MemberImage memberImage)
+        private static void SaveMemberImageToFolder(MemberImage memberImage)
         {
             var pathIcon = Path.Combine(PathIcons(), memberImage.FileNameImage);
             var pathAvatar = Path.Combine(PathAvatars(), memberImage.FileNameImage);
 
-            if (!File.Exists(pathIcon))
+            if (!File.Exists(pathIcon) && memberImage.ByteArrayIcon != null)
             {
                 File.WriteAllBytes(pathIcon, memberImage.ByteArrayIcon);
             }
 
-            if (!File.Exists(pathAvatar))
+            if (!File.Exists(pathAvatar) && memberImage.ByteArrayAvatar!= null)
             {
                 File.WriteAllBytes(pathAvatar, memberImage.ByteArrayAvatar);
             }

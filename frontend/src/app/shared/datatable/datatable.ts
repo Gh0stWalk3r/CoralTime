@@ -40,6 +40,7 @@ import { DomHandler } from 'primeng/components/dom/domhandler';
 import { ObjectUtils } from 'primeng/components/utils/objectutils';
 import { Subscription } from 'rxjs/Subscription';
 import { BlockableUI } from 'primeng/primeng';
+import { DirectivesModule } from '../directives/directives.module';
 
 @Component({
 	selector: 'p-dtRadioButton',
@@ -213,6 +214,9 @@ export class ColumnFooters {
                 <ng-container *ngTemplateOutlet="dt.rowGroupFooterTemplate; context: {$implicit: rowData}"></ng-container>
             </tr>
         </ng-template>
+        <tr *ngIf="dt.loading" class="ct-loading-block">
+            <td [attr.colspan]="dt.visibleColumns().length"></td>
+        </tr>
         <tr *ngIf="dt.isEmpty()" class="ui-widget-content ui-datatable-emptymessage-row" [style.visibility]="dt.loading ? 'hidden' : 'visible'">
             <td [attr.colspan]="dt.visibleColumns().length" class="ui-datatable-emptymessage">
                 <span *ngIf="!dt.emptyMessageTemplate">{{dt.emptyMessage}}</span>
@@ -323,10 +327,14 @@ export class ScrollableView implements AfterViewInit, AfterViewChecked, OnDestro
 		this.initScrolling();
 
 		if (this.dt.resizeObservable) {
-			this.dt.resizeObservable.subscribe(() => {
+			this.dt.resizeObservable.subscribe((refresh: boolean) => {
 				setTimeout(() => {
 					this.slimScroll.getBarHeight();
 					this.checkContentHeight();
+
+					if (refresh) {
+						this.scrollContent(0, true, true);
+					}
 				}, 0);
 			});
 		}
@@ -335,6 +343,8 @@ export class ScrollableView implements AfterViewInit, AfterViewChecked, OnDestro
 	checkContentHeight(): void {
 		if (this.isBarDisplay === false) {
 			this.loadMoreContent.emit();
+		} else {
+			this.scrollContent(0, true, false);
 		}
 	}
 
@@ -355,7 +365,7 @@ export class ScrollableView implements AfterViewInit, AfterViewChecked, OnDestro
 		this.renderer.setElementClass(that.wrapper, 'ct-visible', display === 'none');
 	}
 
-	scrollContent(y: number, isWheel: boolean, isJump: boolean): null | number {
+	scrollContent(y: number, isWheel: boolean, refresh: boolean): null | number {
 		let context = this.slimScroll;
 
 		let delta = y;
@@ -372,7 +382,7 @@ export class ScrollableView implements AfterViewInit, AfterViewChecked, OnDestro
 			}
 
 			delta = Math.min(Math.max(delta, 0), maxTop);
-			delta = (y > 0) ? Math.ceil(delta) : Math.floor(delta);
+			delta = refresh ? 0 : ((y > 0) ? Math.ceil(delta) : Math.floor(delta));
 			this.renderer.setElementStyle(context.bar, 'top', delta + 'px');
 		}
 
@@ -380,7 +390,6 @@ export class ScrollableView implements AfterViewInit, AfterViewChecked, OnDestro
 		delta = percentScroll * hiddenContent;
 
 		context.el.scrollTop = delta;
-
 		context.showBarAndGrid();
 
 		if (!context.options.alwaysVisible) {
@@ -393,7 +402,7 @@ export class ScrollableView implements AfterViewInit, AfterViewChecked, OnDestro
 			}, context.options.visibleTimeout);
 		}
 
-		if (over > 0) {
+		if (hiddenContent - delta < 50) {
 			this.onEndScroll.emit();
 		}
 
@@ -536,10 +545,10 @@ export class ScrollableView implements AfterViewInit, AfterViewChecked, OnDestro
 	template: `
         <div [ngStyle]="style" [class]="styleClass" [style.width]="containerWidth"
              [ngClass]="{'ui-datatable ui-widget':true,'ui-datatable-reflow':responsive,'ui-datatable-stacked':stacked,'ui-datatable-resizable':resizableColumns,'ui-datatable-scrollable':scrollable}">
-            <div class="ui-datatable-loading ui-widget-overlay" *ngIf="loading"></div>
-            <div class="ui-datatable-loading-content" *ngIf="loading">
-                <i [class]="'fa fa-spin fa-2x ' + loadingIcon"></i>
-            </div>
+            <!--<div class="ui-datatable-loading ui-widget-overlay" *ngIf="loading"></div>-->
+            <!--<div class="ui-datatable-loading-content" *ngIf="loading">-->
+                <!--<i [class]="'fa fa-spin fa-2x ' + loadingIcon"></i>-->
+            <!--</div>-->
             <div class="ui-datatable-header ui-widget-header" *ngIf="header">
                 <ng-content select="p-header"></ng-content>
             </div>
@@ -2788,7 +2797,7 @@ export class DataTable implements AfterViewChecked, AfterViewInit, AfterContentI
 }
 
 @NgModule({
-	imports: [CommonModule, SharedModule, PaginatorModule, FormsModule, NgSlimScrollModule],
+	imports: [CommonModule, SharedModule, PaginatorModule, FormsModule, NgSlimScrollModule, DirectivesModule],
 	exports: [DataTable, SharedModule],
 	declarations: [DataTable, DTRadioButton, DTCheckbox, ColumnHeaders, ColumnFooters, TableBody, ScrollableView]
 })

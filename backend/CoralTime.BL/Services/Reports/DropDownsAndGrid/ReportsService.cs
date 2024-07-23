@@ -1,19 +1,40 @@
 ﻿using AutoMapper;
+using CoralTime.BL.Interfaces;
 using CoralTime.BL.Interfaces.Reports;
+using CoralTime.DAL.Models.Member;
 using CoralTime.DAL.Repositories;
+using Microsoft.Extensions.Configuration;
 
 namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
 {
     public partial class ReportsService : BaseService, IReportsService
     {
-        private IReportsSettingsService _reportsSettingsService;
+        private readonly IReportsSettingsService _reportsSettingsService;
+        private readonly IImageService _imageService;
+        private readonly IConfiguration _config;
+        public string SingleFilteredProjectName { get; private set; } = null;
 
-        public ReportsService(UnitOfWork uow, IMapper mapper, IReportsSettingsService reportsSettingsService)
+        public Member ReportMemberCurrent { get; private set; }
+        public Member ReportMemberImpersonated { get; private set; }
+
+        public ReportsService(
+            UnitOfWork uow, 
+            IMapper mapper, 
+            IReportsSettingsService reportsSettingsService,
+            IImageService imageService,
+            IConfiguration config)
             : base(uow, mapper)
         {
             _reportsSettingsService = reportsSettingsService;
+            _imageService = imageService;
+            _config = config;
+            UpdateReportMembers(BaseMemberImpersonated);
         }
 
-        public string SingleFilteredProjectName { get; private set; } = null;
+        private void UpdateReportMembers(Member memberFromNotification)
+        {
+            ReportMemberCurrent = memberFromNotification;
+            ReportMemberImpersonated = memberFromNotification;
+        }
     }
 }

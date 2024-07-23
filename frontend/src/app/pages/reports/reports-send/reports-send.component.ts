@@ -1,12 +1,13 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { NgForm } from '@angular/forms';
-import { ClientsService } from '../../../services/clients.service';
+import * as moment from 'moment';
 import { Client } from '../../../models/client';
-import { ReportsService } from '../../../services/reposts.service';
-import { ReportFilters } from '../../../models/reports';
+import { ReportQuery } from '../../../models/reports';
 import { User } from '../../../models/user';
 import { EMAIL_PATTERN } from '../../../core/constant.service';
-import * as moment from 'moment';
+import { ClientsService } from '../../../services/clients.service';
+import { ReportsService } from '../../../services/reposts.service';
+import { LoadingMaskService } from '../../../shared/loading-indicator/loading-mask.service';
 
 export class SendReportsFormModel {
 	bccEmails: string[];
@@ -17,7 +18,7 @@ export class SendReportsFormModel {
 	fromEmail: string;
 	subject: string;
 	toEmail: string;
-	currentQuery: ReportFilters;
+	currentQuery: ReportQuery;
 
 	constructor(data: any = null) {
 		if (data) {
@@ -66,7 +67,6 @@ export class ReportsSendComponent implements OnInit {
 	@Input() userInfo: User;
 
 	clients: Client[];
-	clientModel: Client;
 	emailPattern = EMAIL_PATTERN;
 	isCcFormValid: boolean = true;
 	isBccFormValid: boolean = true;
@@ -78,6 +78,7 @@ export class ReportsSendComponent implements OnInit {
 	@Output() onSubmit = new EventEmitter();
 
 	constructor(private clientsService: ClientsService,
+	            private loadingService: LoadingMaskService,
 	            private reportsService: ReportsService) {
 	}
 
@@ -90,7 +91,7 @@ export class ReportsSendComponent implements OnInit {
 			}
 		});
 		this.model.fromEmail = this.userInfo.email;
-		let addProjectName = this.projectName ? this.projectName + ': ' : '';
+		const addProjectName = this.projectName ? this.projectName + ': ' : '';
 		this.model.subject = 'CoralTime: ' + addProjectName + this.formatDate(this.model.currentQuery.dateFrom)
 			+ ' - ' + this.formatDate(this.model.currentQuery.dateTo);
 	}
@@ -107,18 +108,21 @@ export class ReportsSendComponent implements OnInit {
 		}
 
 		this.isRequestLoading = true;
-		this.reportsService.sendReports(this.model).subscribe((res) => {
-			this.isRequestLoading = false;
-			this.onSubmit.emit(res);
-		});
+		this.loadingService.addLoading();
+		this.reportsService.sendReports(this.model)
+			.finally(() => this.loadingService.removeLoading())
+			.subscribe((res) => {
+				this.isRequestLoading = false;
+				this.onSubmit.emit(res);
+			});
 	}
 
 	private formatDate(utcDate: Date | string): string {
 		if (!utcDate) {
 			return;
 		}
-		let date = moment(utcDate);
 
+		const date = moment(utcDate);
 		return this.dateFormat ? date.format(this.dateFormat) : date.toDate().toLocaleDateString();
 	}
 }

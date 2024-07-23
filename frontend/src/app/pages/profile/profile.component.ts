@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
-import { ImpersonationService } from '../../services/impersonation.service';
-import { User } from '../../models/user';
-import { ProfileProjectMember, ProfileProjects, ProfileService } from '../../services/profile.service';
 import { ActivatedRoute } from '@angular/router';
+import { User } from '../../models/user';
+import { ImpersonationService } from '../../services/impersonation.service';
+import { ProfileProjectMember, ProfileProjects, ProfileService } from '../../services/profile.service';
 import { UserPicService } from '../../services/user-pic.service';
+import { numberToHex } from '../../shared/form/color-picker/color-picker.component';
 
 @Component({
 	selector: 'ct-profile',
@@ -25,8 +26,7 @@ export class ProfileComponent implements OnInit {
 	ngOnInit() {
 		this.route.data.forEach((data: { user: User }) => {
 			this.userInfo = this.impersonationService.impersonationUser || data.user;
-		});
-
+		});		
 		this.getAvatar();
 		this.getProjects();
 	}
@@ -51,6 +51,10 @@ export class ProfileComponent implements OnInit {
 		this.profileService.getProjectMembers(projectId).subscribe((members: ProfileProjectMember[]) => {
 			this.projects[index].memberList = this.sortList(members, 'memberName');
 		});
+	}
+
+	numberToHex(value: number): string {
+		return numberToHex(value);
 	}
 
 	setManagersString(managersList: string[]): string {

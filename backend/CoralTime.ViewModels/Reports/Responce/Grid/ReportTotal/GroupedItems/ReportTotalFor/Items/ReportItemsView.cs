@@ -1,7 +1,8 @@
 ﻿using System;
+using CoralTime.ViewModels.Reports.Responce.Grid.ReportTotal.GroupedItems.ReportTotalFor.Items.TimeValues;
 using Newtonsoft.Json;
 
-namespace CoralTime.ViewModels.Reports
+namespace CoralTime.ViewModels.Reports.Responce.Grid.ReportTotal.GroupedItems.ReportTotalFor.Items
 {
     public class ReportItemsView
     {
@@ -26,7 +27,9 @@ namespace CoralTime.ViewModels.Reports
         
         [JsonIgnore] public int MemberId { get; set; }
         public string MemberName { get; set; }
-
+        
+        public string MemberUrlIcon { get; set; }
+        
         [JsonIgnore] public int TaskId { get; set; }
         public string TaskName { get; set; }
 

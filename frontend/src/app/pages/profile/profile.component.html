@@ -18,7 +18,7 @@
                     <p>{{impersonationUser?.email || userInfo?.email}}</p>
                 </div>
 
-                <button [routerLink]="['/profile/settings']" class="ct-button ct-blue-button">Settings</button>
+                <button [routerLink]="['/profile/settings']" class="ct-button ct-blue-button">Preferences</button>
             </div>
 
             <div class="ct-user-settings">
@@ -29,7 +29,7 @@
                 <p class="ct-profile-no-project" *ngIf="projects && !projects.length">You haven't assigned to any project yet.</p>
 
                 <div *ngFor="let project of projects; let i = index" class="ct-profile-project">
-                    <span class="ct-color-{{project.color}}"></span>
+                    <span class="ct-color" [ngStyle]="{color: numberToHex(project.color)}"></span>
 
                     <p class="ct-profile-project-name">{{project.name}}
                         <span>

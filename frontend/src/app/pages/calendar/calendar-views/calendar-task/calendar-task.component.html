@@ -1,28 +1,25 @@
 <i class="material-icons ct-lock-icon" *ngIf="!isTimeEntryAvailable"
    [title]="lockReason">lock</i>
 <ct-entry-time #form [timeEntry]="timeEntry"
-               (timerUpdated)="updateTimer()"
-               (deleted)="deleteTimeEntry()"
-               class="ct-border-{{timeEntry.color}}"></ct-entry-time>
+               (deleted)="deleteTimeEntry()"></ct-entry-time>
 <div *ngIf="timeEntry.timeOptions.isFromToShow" class="ct-calendar-time-entry-period">
-    {{setTimeString(timeEntry.timeValues.timeFrom)}} - {{setTimeString(timeEntry.timeValues.timeTo)}}
+    {{setTimeString(timeEntry.timeValues.timeFrom, timeFormat === 12)}} - {{setTimeString(timeEntry.timeValues.timeTo, timeFormat === 12)}}
 </div>
 
-<a *ngIf="isTimeEntryAvailable && !isTimerShown"
+<a *ngIf="isTimeEntryAvailable"
    class="ct-menu-open-link" [class.ct-menu-opened]="menu.isOpen"
    (click)="menu.toggleMenu()">
-    <i class="material-icons">more_horiz</i>
+    <i class="material-icons">more_vert</i>
 </a>
 
-<ct-menu #menu [xPosition]="'before'" class="ct-actions-drop-menu "
-         (closed)="isCalendarShown = false">
-    <ct-menu-item [class.ct-disabled]="!timeEntry.id || isTimerShown">
+<ct-menu #menu [xPosition]="'before'" class="ct-actions-drop-menu" (closed)="isCalendarShown = false">
+    <ct-menu-item [class.ct-disabled]="!timeEntry.id">
         <a mat-ripple (click)="duplicateAction()">Duplicate <span class="ct-menu-hint">(Alt+Drag)</span></a>
     </ct-menu-item>
-    <ct-menu-item [autoClose]="false" [class.ct-disabled]="!timeEntry.id || isTimerShown">
+    <ct-menu-item [autoClose]="false" [class.ct-disabled]="!timeEntry.id">
         <div class="ct-menu-container">
             <a mat-ripple (click)="moveAction(submenu)">Move <span class="ct-menu-hint">(Drag)</span></a>
-            <ct-menu #submenu [xPosition]="'before'"
+            <ct-menu #submenu [xPosition]="isOpenLeft ? 'before': 'after'"
                      class="ct-submenu ct-datepicker-menu"
                      [class.ct-open-left]="isOpenLeft"
                      [class.ct-open-right]="isOpenRight"
@@ -36,32 +33,29 @@
             </ct-menu>
         </div>
     </ct-menu-item>
-    <ct-menu-item [class.ct-disabled]="!timeEntry.id || isTimerShown">
+    <ct-menu-item [class.ct-disabled]="!timeEntry.id">
         <a mat-ripple (click)="deleteAction()">Delete</a>
     </ct-menu-item>
 </ct-menu>
 
 <div class="ct-calendar-time-entry-container" [class.ct-lock-overlay]="!isTimeEntryAvailable">
     <div (click)="openEntryTimeForm()" [style.height]="calculateCalendarTaskHeight() + 'px'">
-        <div class="ct-calendar-time-entry-title">
+        <div class="ct-calendar-time-entry-title ct-project-color"
+             [ngStyle]="{color: numberToHex(timeEntry.color)}">
             {{timeEntry.projectName}}
         </div>
         <div class="ct-calendar-time-entry-type">
             {{timeEntry.taskName}}
         </div>
-        <pre class="ct-calendar-time-entry-description" *ngIf="timeEntry.description">{{ timeEntry.description }}</pre>
+        <pre *ngIf="timeEntry.description" class="ct-calendar-time-entry-description"
+             markdown [data]="timeEntry.description"></pre>
     </div>
     <div class="ct-calendar-time-entry-time" (click)="openEntryTimeForm()">
-        <div *ngIf="!isTimerShown" class="ct-calendar-time-entry-hours-tracked" title="Tracked time">
+        <div class="ct-calendar-hours-tracked" title="Tracked time">
             <span>{{setTimeString(timeEntry.timeValues.timeActual)}}</span>
         </div>
-        <div *ngIf="isTimerShown" class="ct-timer-block" style="z-index: 2; position:relative;">
-            <span class="ct-clock"><i></i></span>
-            <span>{{timerValue}}</span>
-        </div>
-        <div *ngIf="timeEntry.timeValues.timeEstimated > 0" class="ct-calendar-time-entry-hours-planned" title="Planned time">
+        <div *ngIf="timeEntry.timeValues.timeEstimated > 0" class="ct-calendar-hours-planned" title="Planned time">
             <span>{{setTimeString(timeEntry.timeValues.timeEstimated)}}</span>
         </div>
     </div>
-    <div *ngIf="isTimerShown" title="Stop timer" (click)="stopTimer()" class="ct-calendar-task-stop-timer"></div>
 </div>

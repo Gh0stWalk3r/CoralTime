@@ -7,9 +7,12 @@ using CoralTime.Common.Helpers;
 using CoralTime.DAL.ConvertModelToView;
 using CoralTime.DAL.ConvertViewToModel;
 using CoralTime.DAL.Models;
+using CoralTime.DAL.Models.Member;
 using CoralTime.DAL.Repositories;
 using CoralTime.ViewModels.Errors;
 using CoralTime.ViewModels.Member;
+using CoralTime.ViewModels.Member.MemberPasswordView;
+using CoralTime.ViewModels.Notifications.ByWeeklyUpdates;
 using CoralTime.ViewModels.Projects;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -43,12 +46,12 @@ namespace CoralTime.BL.Services
         {
             var globalActiveProjCount = Uow.ProjectRepository.LinkedCacheGetList().Where(x => !x.IsPrivate && x.IsActive).Select(x => x.Id).ToArray();
 
-            var allMembers = GetAllMembersCommon(ImpersonatedUserName);
+            var allMembers = GetAllMembersCommon();
 
             var allMembersView = allMembers.Select(p => p.GetViewWithGlobalProjectsCount(globalActiveProjCount, Mapper, _avatarService.GetUrlIcon(p.Id))).ToList();
             foreach (var member in allMembersView)
             {
-                member.UrlIcon= _avatarService.GetUrlIcon(member.Id);
+                member.UrlIcon = _avatarService.GetUrlIcon(member.Id);
             }
 
             return allMembersView;
@@ -175,23 +178,12 @@ namespace CoralTime.BL.Services
 
         public async Task<MemberView> Update(MemberView memberView, string baseUrl)
         {
-            var memberByName = Uow.MemberRepository.GetQueryByUserName(CurrentUserName);
+            var currentMember = Uow.MemberRepository.GetQueryByMemberId(BaseMemberCurrent.Id);
+            var updatedMember = Uow.MemberRepository.GetQueryByMemberId(memberView.Id);
 
-            if (memberByName == null)
+            if (currentMember.Id != updatedMember.Id && !currentMember.User.IsAdmin)
             {
-                throw new CoralTimeEntityNotFoundException($"Member with userName {CurrentUserName} not found.");
-            }
-
-            if (!memberByName.User.IsActive)
-            {
-                throw new CoralTimeEntityNotFoundException($"Member with userName {CurrentUserName} is not active.");
-            }
-
-            var memberId = memberView.Id;
-
-            if (memberByName.Id != memberId && !memberByName.User.IsAdmin)
-            {
-                throw new CoralTimeForbiddenException($"Member with userName {CurrentUserName} can't change other user's data.");
+                throw new CoralTimeForbiddenException($"Member with userName {BaseMemberCurrent.User.UserName} can't change other user's data.");
             }
 
             if (! EmailChecker.IsValidEmail(memberView.Email))
@@ -199,63 +191,67 @@ namespace CoralTime.BL.Services
                 throw new CoralTimeSafeEntityException("Invalid email");
             }
 
-            var member = Uow.MemberRepository.GetQueryByMemberId(memberId);
-
             if (_isDemo)
             {
-                if (member.User.Email != memberView.Email)
+                if (updatedMember.User.Email != memberView.Email)
+                {
                     throw new CoralTimeForbiddenException("Email can't be changed on demo site");
-                if (member.User.UserName != memberView.UserName)
+                }
+
+                if (updatedMember.User.UserName != memberView.UserName)
+                {
                     throw new CoralTimeForbiddenException("Username can't be changed on demo site");
-                if (member.User.IsActive != memberView.IsActive)
+                }
+
+                if (updatedMember.User.IsActive != memberView.IsActive)
+                {
                     throw new CoralTimeForbiddenException("Status can't be changed on demo site");
-                if (member.FullName != memberView.FullName)
+                }
+
+                if (updatedMember.FullName != memberView.FullName)
+                {
                     throw new CoralTimeForbiddenException("Full name can't be changed on demo site");
+                }
             }
 
-            if (memberByName.User.IsAdmin)
+            if (currentMember.User.IsAdmin)
             {
                 var newEmail = memberView.Email;
                 var newUserName = memberView.UserName;
                 var newIsActive = memberView.IsActive;
                 var newIsAdmin = memberView.IsAdmin;
-                
-                if (member.User.Email != newEmail || member.User.UserName != newUserName || member.User.IsActive != newIsActive || member.User.IsAdmin != newIsAdmin)
-                {
-                    member.User.Email = newEmail;
-                    member.User.UserName = newUserName;
 
-                    var updateResult = await _userManager.UpdateAsync(member.User);
+                if (updatedMember.User.Email != newEmail || updatedMember.User.UserName != newUserName ||
+                    updatedMember.User.IsActive != newIsActive || updatedMember.User.IsAdmin != newIsAdmin)
+                {
+                    updatedMember.User.Email = newEmail;
+                    updatedMember.User.UserName = newUserName;
+
+                    var updateResult = await _userManager.UpdateAsync(updatedMember.User);
                     if (updateResult.Succeeded)
                     {
-                        var startRole = member.User.IsAdmin ? ApplicationRoleAdmin : ApplicationRoleUser;
+                        var startRole = updatedMember.User.IsAdmin ? ApplicationRoleAdmin : ApplicationRoleUser;
 
-                        if (memberId != memberByName.Id)
+                        if (currentMember.Id != updatedMember.Id)
                         {
-                            member.User.IsActive = newIsActive;
-                            member.User.IsAdmin = newIsAdmin;
+                            updatedMember.User.IsActive = newIsActive;
+                            updatedMember.User.IsAdmin = newIsAdmin;
                         }
 
-                        var finishRole = member.User.IsAdmin ? ApplicationRoleAdmin : ApplicationRoleUser;
+                        var finishRole = updatedMember.User.IsAdmin ? ApplicationRoleAdmin : ApplicationRoleUser;
 
-                        try
+                        Uow.MemberRepository.Update(updatedMember);
+                        Uow.Save();
+
+                        if (startRole != finishRole)
                         {
-                            Uow.MemberRepository.Update(member);
-                            Uow.Save();
-
-                            if (startRole != finishRole)
-                            {
-                                await _userManager.RemoveFromRoleAsync(member.User, startRole);
-                                await _userManager.AddToRoleAsync(member.User, finishRole);
-                            }
-
-                            UpdateUserClaims(member.Id);
-                            Uow.MemberRepository.LinkedCacheClear();
+                            await _userManager.RemoveFromRoleAsync(updatedMember.User, startRole);
+                            await _userManager.AddToRoleAsync(updatedMember.User, finishRole);
                         }
-                        catch (Exception e)
-                        {
-                            throw new CoralTimeDangerException("An error occurred while updating member", e);
-                        }
+
+                        UpdateUserClaims(updatedMember.Id);
+
+                        Uow.MemberRepository.LinkedCacheClear();
                     }
                     else
                     {
@@ -268,7 +264,7 @@ namespace CoralTime.BL.Services
                 }
             }
 
-            var memberById = Uow.MemberRepository.GetQueryByMemberId(memberId);
+            var memberById = Uow.MemberRepository.GetQueryByMemberId(updatedMember.Id);
 
             await ChangeEmailByUserAsync(memberById, memberView.Email);
 
@@ -281,6 +277,7 @@ namespace CoralTime.BL.Services
             memberById.TimeFormat = memberView.TimeFormat;
             memberById.SendEmailTime = memberView.SendEmailTime;
             memberById.SendEmailDays = ConverterBitMask.DayOfWeekStringToInt(memberView.SendEmailDays);
+            memberById.WorkingHoursPerDay = memberView.WorkingHoursPerDay;
 
             try
             {
@@ -301,12 +298,25 @@ namespace CoralTime.BL.Services
 
             var memberByIdResult = Uow.MemberRepository.LinkedCacheGetById(memberById.Id);
             var urlIcon = _avatarService.GetUrlIcon(memberByIdResult.Id);
-            var meberView = memberByIdResult.GetView(Mapper, urlIcon);
+            var updatedMemberView = memberByIdResult.GetView(Mapper, urlIcon);
 
-            await SentUpdateAccountEmailAsync(meberView, baseUrl);
+            await SentUpdateAccountEmailAsync(updatedMemberView, baseUrl);
 
-            return meberView;
+            return updatedMemberView;
         }
+
+        public List<MemberWeeklyNotificationByDayOfWeekView> GetMembersWithWeeklyNotifications() => Uow.MemberRepository.LinkedCacheGetList()
+            .Where(member => member.IsWeeklyTimeEntryUpdatesSend)
+            .GroupBy(member => member.WeekStart.ToString())
+            .Select(item => new MemberWeeklyNotificationByDayOfWeekView
+            {
+                WeekStartName = item.Key,
+                Members = item.Select(member => new MemberWeeklyNotificationView
+                {
+                    Id = member.Id,
+                    FullName = member.FullName
+                }).ToList()
+            }).ToList();
 
         #region Change Password.
 
@@ -393,13 +403,13 @@ namespace CoralTime.BL.Services
 
             if (result.Succeeded)
             {
-                var tokenToDeleteIds = Uow.UserForgotPassRequestRepository.GetQueryWithIncludes()
+                var tokenToDeleteIds = Uow.UserForgotPassRequestRepository.GetQuery()
                     .Where(x => x.Email == userForgotPassRequest.Email)
                     .Select(y => y.Id)
                     .ToList();
 
                 tokenToDeleteIds.ForEach(id => Uow.UserForgotPassRequestRepository.Delete(id));
-                Uow.Save();
+                Uow.Save(isAnonymousRequest: true);
 
                 return new ChangePasswordResultView { IsChangedPassword = true, Message = (int)Constants.Errors.None };
             }
@@ -624,7 +634,7 @@ namespace CoralTime.BL.Services
 
         public void UpdateUserClaims(int memberId)
         {
-            var memberById = Uow.MemberRepository.GetQueryWithIncludes().FirstOrDefault(m => m.Id == memberId);
+            var memberById = Uow.MemberRepository.GetQuery().FirstOrDefault(m => m.Id == memberId);
 
             #region v1.
 
@@ -747,15 +757,9 @@ namespace CoralTime.BL.Services
             }
         }
 
-        private IEnumerable<Member> GetAllMembersCommon(string userName)
+        private IEnumerable<Member> GetAllMembersCommon()
         {
-            var userByName = Uow.UserRepository.LinkedCacheGetByName(userName);
-            if (userByName == null)
-            {
-                throw new CoralTimeEntityNotFoundException("User with userName " + $"{userName} not found");
-            }
-
-            if (userByName.IsAdmin || userByName.IsManager)
+            if (BaseMemberImpersonated.User.IsAdmin || BaseMemberImpersonated.User.IsManager)
             {
                 var membersAll = Uow.MemberRepository.LinkedCacheGetList();
                 if (membersAll == null)
@@ -766,10 +770,10 @@ namespace CoralTime.BL.Services
                 return membersAll;
             }
 
-            var memberById = Uow.MemberRepository.LinkedCacheGetByUserName(userName);
+            var memberById = Uow.MemberRepository.LinkedCacheGetByUserName(BaseMemberImpersonated.User.UserName);
             if (memberById == null)
             {
-                throw new CoralTimeEntityNotFoundException($"Member by user id {userByName.Id} not found.");
+                throw new CoralTimeEntityNotFoundException($"Member by user id {BaseMemberImpersonated.User.Id} not found.");
             }
 
             return new List<Member> { memberById };

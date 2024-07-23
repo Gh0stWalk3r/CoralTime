@@ -9,7 +9,7 @@ import { ProjectRolesService } from '../../../services/project-roles.service';
 import { SettingsService } from '../../../services/settings.service';
 import { ProjectRole } from '../../../models/project-role';
 import { User } from '../../../models/user';
-import { PagedResult } from '../../../services/odata/query';
+import { PagedResult } from '../../../services/odata';
 import { Subject } from 'rxjs/Subject';
 import { ArrayUtils } from '../../../core/object-utils';
 import { ROWS_ON_PAGE } from '../../../core/constant.service';
@@ -26,7 +26,6 @@ export class ProjectUsersComponent implements OnInit {
 	authUser: AuthUser;
 	defaultProjectRole: ProjectRole;
 	filterStr: string = '';
-	isRequestLoading: boolean = false;
 	projectRoles: ProjectRole[];
 	resizeObservable: Subject<any> = new Subject();
 	wrapperHeightObservable: Subject<any> = new Subject();
@@ -43,11 +42,11 @@ export class ProjectUsersComponent implements OnInit {
 	private notAssignedUsersLastEvent: any;
 	private notAssignedUsersSubject = new Subject<any>();
 
-	constructor(private usersService: UsersService,
+	constructor(private authService: AuthService,
 	            private notificationService: NotificationService,
-	            private authService: AuthService,
 	            private projectRolesService: ProjectRolesService,
-	            private settingsService: SettingsService) {
+	            private settingsService: SettingsService,
+	            private usersService: UsersService) {
 	}
 
 	ngOnInit() {
@@ -78,8 +77,7 @@ export class ProjectUsersComponent implements OnInit {
 		this.assignedUsersSubject.debounceTime(500).switchMap(() => {
 			return this.usersService.getProjectUsersWithCount(this.assignedUsersLastEvent, this.filterStr, this.project.id);
 		})
-			.subscribe(
-				(res: PagedResult<UserProject>) => {
+			.subscribe((res: PagedResult<UserProject>) => {
 					if (!this.assignedUsersPagedResult || !this.assignedUsersLastEvent.first || this.updatingAssignedUsersGrid) {
 						this.assignedUsersPagedResult = res;
 					} else {
@@ -93,30 +91,30 @@ export class ProjectUsersComponent implements OnInit {
 					this.assignedUsersLastEvent.first = this.assignedUsersPagedResult.data.length;
 					this.updatingAssignedUsersGrid = false;
 					this.wrapperHeightObservable.next();
+					this.checkIsAllAssignedUsers();
 				},
-				error => this.notificationService.danger('Error loading users.')
+				() => this.notificationService.danger('Error loading users.')
 			);
 	}
 
 	onAssignedUsersEndScroll(): void {
-		this.checkIsAllAssignedUsers();
-
 		if (!this.isAllAssignedUsers) {
 			this.updateAssignedUsers();
 		}
 	}
 
 	updateAssignedUsers(event = null, updatePage?: boolean): void {
-		this.checkIsAllAssignedUsers();
-
 		if (event) {
 			this.assignedUsersLastEvent = event;
-			this.isAllAssignedUsers = false;
 		}
 		if (updatePage) {
 			this.updatingAssignedUsersGrid = updatePage;
 			this.assignedUsersLastEvent.first = 0;
+		}
+		if (event || updatePage) {
 			this.isAllAssignedUsers = false;
+			this.assignedUsersPagedResult = null;
+			this.resizeObservable.next(true);
 		}
 		this.assignedUsersLastEvent.rows = ROWS_ON_PAGE;
 		if (!updatePage && this.isAllAssignedUsers) {
@@ -141,40 +139,40 @@ export class ProjectUsersComponent implements OnInit {
 		this.notAssignedUsersSubject.debounceTime(500).switchMap(() => {
 			return this.usersService.getUnassignedUsersWithCount(this.notAssignedUsersLastEvent, this.filterStr, this.project.id);
 		})
-			.subscribe(
-				(res: PagedResult<User>) => {
+			.subscribe((res: PagedResult<User>) => {
 					if (!this.notAssignedUsersPagedResult || !this.notAssignedUsersLastEvent.first || this.updatingNotAssignedUsersGrid) {
 						this.notAssignedUsersPagedResult = res;
 					} else {
 						this.notAssignedUsersPagedResult.data = this.notAssignedUsersPagedResult.data.concat(res.data);
 					}
+
 					this.notAssignedUsersLastEvent.first = this.notAssignedUsersPagedResult.data.length;
 					this.updatingNotAssignedUsersGrid = false;
 					this.wrapperHeightObservable.next();
+					this.checkIsAllUnassignedUsers();
 				},
-				error => this.notificationService.danger('Error loading users.')
+				() => this.notificationService.danger('Error loading users.')
 			);
 	}
 
 	onNotAssignedUsersEndScroll(): void {
-		this.checkIsAllUnassignedUsers();
-
 		if (!this.isAllNotAssignedUsers) {
 			this.updateNotAssignedUsers();
 		}
 	}
 
 	updateNotAssignedUsers(event = null, updatePage?: boolean): void {
-		this.checkIsAllUnassignedUsers();
-
 		if (event) {
 			this.notAssignedUsersLastEvent = event;
-			this.isAllNotAssignedUsers = false;
 		}
 		if (updatePage) {
 			this.updatingNotAssignedUsersGrid = updatePage;
 			this.notAssignedUsersLastEvent.first = 0;
+		}
+		if (event || updatePage) {
 			this.isAllNotAssignedUsers = false;
+			this.notAssignedUsersPagedResult = null;
+			this.resizeObservable.next(true);
 		}
 		this.notAssignedUsersLastEvent.rows = ROWS_ON_PAGE;
 		if (!updatePage && this.isAllNotAssignedUsers) {
@@ -195,63 +193,64 @@ export class ProjectUsersComponent implements OnInit {
 
 	// GENERAL
 
-	addToProject(user: User): void {
-		this.isRequestLoading = true;
+	addToProject(user: User, target: HTMLElement): void {
+		target.classList.add('ct-loading');
 		this.usersService.assignUserToProject(this.project.id, user.id, this.defaultProjectRole.id)
-			.subscribe(
-				() => {
-					this.isRequestLoading = false;
+			.subscribe(() => {
 					this.notificationService.success('User successfully assigned.');
-					this.filterStr = '';
 					this.updateAssignedUsers(null, true);
 					this.updateNotAssignedUsers(null, true);
 				},
 				() => {
+					target.classList.remove('ct-loading');
 					this.notificationService.danger('Error adding user.');
 				}
 			);
 	}
 
-	assignToPublic(userProject: UserProject): void {
-		this.usersService.assignProjectToUser(userProject.memberId, userProject.projectId, userProject.roleId).subscribe(
-			() => {
-				this.notificationService.success('Access level has been changed.');
-				this.updateAssignedUsers(null, true);
-				this.updateNotAssignedUsers(null, true);
-			},
-			() => {
-				this.notificationService.danger('Access level has not been changed.');
-			}
-		);
+	assignToPublic(userProject: UserProject, target: HTMLElement): void {
+		target.classList.add('ct-loading');
+		this.usersService.assignProjectToUser(userProject.memberId, userProject.projectId, userProject.roleId)
+			.finally(() => target.classList.remove('ct-loading'))
+			.subscribe(() => {
+					this.notificationService.success('Access level has been changed.');
+					this.updateAssignedUsers(null, true);
+					this.updateNotAssignedUsers(null, true);
+				},
+				() => {
+					this.notificationService.danger('Access level has not been changed.');
+				}
+			);
 	}
 
-	changeRole(userProject: UserProject): void {
-		this.usersService.changeRole(userProject.id, userProject.role.id).subscribe(
-			() => {
-				this.notificationService.success('Access level has been changed.');
-				this.updateAssignedUsers(null, true);
-				this.updateNotAssignedUsers(null, true);
-			},
-			() => {
-				this.notificationService.danger('Access level has not been changed.');
-			}
-		);
+	changeRole(userProject: UserProject, target: HTMLElement): void {
+		target.classList.add('ct-loading');
+		this.usersService.changeRole(userProject.id, userProject.role.id)
+			.finally(() => target.classList.remove('ct-loading'))
+			.subscribe(() => {
+					this.notificationService.success('Access level has been changed.');
+					this.updateAssignedUsers(null, true);
+					this.updateNotAssignedUsers(null, true);
+				},
+				() => {
+					this.notificationService.danger('Access level has not been changed.');
+				}
+			);
 	}
 
-	removeFromProject(userProject: UserProject): void {
-		this.isRequestLoading = true;
-		this.usersService.removeFromProject(userProject).subscribe(
-			() => {
-				this.isRequestLoading = false;
-				this.notificationService.success('User was removed from project.');
-				this.filterStr = '';
-				this.updateAssignedUsers(null, true);
-				this.updateNotAssignedUsers(null, true);
-			},
-			() => {
-				this.notificationService.danger('Error removing user.');
-			}
-		);
+	removeFromProject(userProject: UserProject, target: HTMLElement): void {
+		target.classList.add('ct-loading');
+		this.usersService.removeFromProject(userProject)
+			.subscribe(() => {
+					this.notificationService.success('User was removed from project.');
+					this.updateAssignedUsers(null, true);
+					this.updateNotAssignedUsers(null, true);
+				},
+				() => {
+					target.classList.remove('ct-loading');
+					this.notificationService.danger('Error removing user.');
+				}
+			);
 	}
 
 	onResize(): void {
@@ -259,6 +258,7 @@ export class ProjectUsersComponent implements OnInit {
 	}
 
 	private changeScrollableContainer(): void {
+		const HEIGHT = 325;
 		let grid = this.gridContainer.nativeElement;
 		let wrappers = grid.querySelectorAll('.ui-datatable-scrollable-body');
 
@@ -266,14 +266,14 @@ export class ProjectUsersComponent implements OnInit {
 			return;
 		}
 
-		wrappers[0].setAttribute('style', 'max-height: calc((90vh - 180px)/2)');
-		wrappers[1].setAttribute('style', 'max-height: calc((90vh - 180px)/2)');
+		wrappers[0].setAttribute('style', 'max-height: calc((100vh - ' + HEIGHT + 'px)/2)');
+		wrappers[1].setAttribute('style', 'max-height: calc((100vh - ' + HEIGHT + 'px)/2)');
 
-		if (wrappers[0].scrollHeight < (window.innerHeight * 0.9 - 180) / 2) {
-			wrappers[1].setAttribute('style', 'max-height: calc(90vh - 180px - ' + wrappers[0].scrollHeight + 'px)');
+		if (wrappers[0].scrollHeight < (window.innerHeight - HEIGHT) / 2) {
+			wrappers[1].setAttribute('style', 'max-height: calc(100vh - ' + HEIGHT + 'px - ' + wrappers[0].scrollHeight + 'px)');
 		}
-		if (wrappers[1].scrollHeight < (window.innerHeight * 0.9 - 180) / 2) {
-			wrappers[0].setAttribute('style', 'max-height: calc(90vh - 180px - ' + wrappers[1].scrollHeight + 'px)');
+		if (wrappers[1].scrollHeight < (window.innerHeight - HEIGHT) / 2) {
+			wrappers[0].setAttribute('style', 'max-height: calc(100vh - ' + HEIGHT + 'px - ' + wrappers[1].scrollHeight + 'px)');
 		}
 	}
 }

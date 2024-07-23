@@ -1,5 +1,6 @@
 import * as moment from 'moment';
 import Moment = moment.Moment;
+import { GRAY_COLOR, hexToNumber } from '../shared/form/color-picker/color-picker.component';
 
 export class CalendarDay {
 	date: string;
@@ -7,7 +8,7 @@ export class CalendarDay {
 	plannedTime: number;
 	trackedTime: number;
 
-	constructor(data = null) {
+	constructor(data: any) {
 		if (!data) {
 			return;
 		}
@@ -60,8 +61,8 @@ export class TimeEntry {
 	timeOptions: TimeOptions;
 	timeValues: TimeValues;
 
-	constructor(data = null) {
-		this.color = data && data.color || 0;
+	constructor(data: any) {
+		this.color = data && data.color || hexToNumber(GRAY_COLOR);
 		this.date = data && data.date;
 		this.description = data && data.description;
 		this.id = data && data.id;
@@ -80,11 +81,23 @@ export class TimeEntry {
 			timeTimerStart: data && data.timeOptions && data.timeOptions.timeTimerStart || 0
 		};
 		this.timeValues = {
-			timeActual: data && data.timeValues && data.timeValues.timeActual || 1,
+			timeActual: data && data.timeValues && data.timeValues.timeActual || 0,
 			timeEstimated: data && data.timeValues && data.timeValues.timeEstimated || 0,
 			timeFrom: data && data.timeValues && data.timeValues.timeFrom,
 			timeTo: data && data.timeValues && data.timeValues.timeTo
 		};
+	}
+}
+
+export class TimerResponse {
+	timeEntry: TimeEntry;
+	trackedTime: number;
+
+	constructor(data: any) {
+		if (data) {
+			this.timeEntry = data.timeEntry ? new TimeEntry(data.timeEntry) : null;
+			this.trackedTime = data.trackedTime;
+		}
 	}
 }
 

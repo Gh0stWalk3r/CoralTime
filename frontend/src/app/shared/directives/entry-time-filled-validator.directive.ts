@@ -2,7 +2,7 @@ import { Directive, forwardRef } from '@angular/core';
 import { Validator, AbstractControl, NG_VALIDATORS } from '@angular/forms';
 
 @Directive({
-	selector: 'form[entryTimeFilled]',
+	selector: 'form[ctEntryTimeFilled]',
 	providers: [
 		{
 			provide: NG_VALIDATORS,
@@ -14,16 +14,20 @@ import { Validator, AbstractControl, NG_VALIDATORS } from '@angular/forms';
 
 export class EntryTimeFilledValidator implements Validator {
 	validate(c: AbstractControl): { [key: string]: any } {
-		let v = c.value;
-		let invalidValue = '00:00';
+		const v = c.value;
+		const timeActual: number = this.convertTimeStringToNumber(v['timeActualHours'], v['timeActualMinutes']);
+		const timeEstimated: number = this.convertTimeStringToNumber(v['timeEstimatedHours'], v['timeEstimatedMinutes']);
 
-		if (invalidValue.indexOf(v['timeActual']) + 1 &&
-			invalidValue.indexOf(v['timeEstimated']) + 1) {
+		if (timeActual === 0 && timeEstimated === 0) {
 			return {
 				EntryTimeFilled: false
 			};
 		}
 
 		return null;
+	}
+
+	private convertTimeStringToNumber(hours: string, minutes: string): number {
+		return Number(hours || 0) * 60 + Number(minutes || 0)
 	}
 }

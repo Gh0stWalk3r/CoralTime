@@ -2,7 +2,6 @@
 using CoralTime.BL.Interfaces.Reports;
 using CoralTime.Common.Constants;
 using CoralTime.DAL.Repositories;
-using CoralTime.ViewModels.Reports;
 using CoralTime.ViewModels.Reports.Request.Grid;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -13,6 +12,8 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using CoralTime.ViewModels.Reports.Responce.Grid.ReportTotal;
+using CoralTime.Common.Helpers;
 
 namespace CoralTime.BL.Services.Reports.Export
 {
@@ -70,7 +71,19 @@ namespace CoralTime.BL.Services.Reports.Export
         private async Task<byte[]> CreateFileOfBytesReportsGridAsync(ReportsGridView reportsGridView, ReportTotalView reportTotalView)
         {
             var fileOfBytes = new byte[0];
-            
+
+            // remove markdown
+            foreach (var groupedItem in reportTotalView.GroupedItems)
+            {
+                foreach (var item in groupedItem.Items)
+                {
+                    if (!string.IsNullOrWhiteSpace(item.Notes))
+                    {
+                        item.Notes = StringHandler.RemoveMarkdown(item.Notes);
+                    }
+                }
+            }
+
             // TODO Check!
             UpdateFileName((DateTime) reportsGridView.CurrentQuery.DateFrom, (DateTime) reportsGridView.CurrentQuery.DateTo);
 
@@ -85,7 +98,7 @@ namespace CoralTime.BL.Services.Reports.Export
                     break;
                 }
 
-                case (int) Constants.FileType.CSV:
+                case (int) Constants.FileType.Csv:
                 {
                     FileName = FileName + ExtensionCSV;
                     //file = CreateFileCSV(reportTotalView);
@@ -94,7 +107,7 @@ namespace CoralTime.BL.Services.Reports.Export
                     break;
                 }
 
-                case (int) Constants.FileType.PDF:
+                case (int) Constants.FileType.Pdf:
                 {
                     FileName = FileName + ExtensionPDF;
                     fileOfBytes = await CreateFilePDFAsync(reportTotalView);

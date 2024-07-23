@@ -8,22 +8,26 @@ import { User } from '../../../../models/user';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { CalendarService } from '../../../../services/calendar.service';
 import { ImpersonationService } from '../../../../services/impersonation.service';
-import { ctCalendarAnimations } from '../../calendar-animation';
+import { LoadingMaskService } from '../../../../shared/loading-indicator/loading-mask.service';
+import { ctCalendarAnimation } from '../../calendar.animation';
 
 @Component({
 	selector: 'ct-calendar-weekly-view',
 	templateUrl: 'weekly-view.component.html',
-	animations: [ctCalendarAnimations.slideCalendar]
+	animations: [ctCalendarAnimation.slideCalendar]
 })
 
 export class CalendarWeeklyViewComponent implements OnInit, OnDestroy {
 	@HostBinding('class.ct-calendar-weekly-view') addClass: boolean = true;
 
 	animationState: string;
+	animationDisabled: boolean = false;
+	animationDelayArray: number[] = [];
 	calendar: CalendarDay[];
 	date: string;
 	daysInCalendar: number;
 	firstDayOfWeek: number;
+	oldDate: string;
 	projects: Project[] = [];
 	projectIds: number[];
 	projectTimeEntries: TimeEntry[] = [];
@@ -37,6 +41,7 @@ export class CalendarWeeklyViewComponent implements OnInit, OnDestroy {
 	constructor(private authService: AuthService,
 	            private calendarService: CalendarService,
 	            private impersonationService: ImpersonationService,
+	            private loadingService: LoadingMaskService,
 	            private route: ActivatedRoute) {
 	}
 
@@ -49,18 +54,18 @@ export class CalendarWeeklyViewComponent implements OnInit, OnDestroy {
 		});
 
 		this.route.params.subscribe((params: Params) => {
-			let oldDate = this.date || DateUtils.formatDateToString(new Date());
+			this.oldDate = this.date || DateUtils.formatDateToString(new Date());
 			this.date = params['date'] ? DateUtils.reformatDate(params['date'], 'MM-DD-YYYY') : DateUtils.formatDateToString(new Date());
 			this.projectIds = params['projectIds'] ? params['projectIds'].split(',') : null;
 
-			this.triggerAnimation(oldDate, this.date);
+			this.triggerAnimation(this.oldDate, this.date);
 			this.setAvailablePeriod(window.innerWidth);
-			this.getTimeEntries(this.projectIds);
+			this.getTimeEntries(this.projectIds, params['date'] && this.oldDate === this.date);
 		});
 
 		this.timeEntriesSubscription = this.calendarService.timeEntriesUpdated
 			.subscribe(() => {
-				this.getTimeEntries(this.projectIds);
+				this.getTimeEntries(this.projectIds, true);
 			});
 		this.subscriptionImpersonation = this.impersonationService.onChange.subscribe(() => {
 			if (this.authService.isLoggedIn()) {
@@ -69,25 +74,23 @@ export class CalendarWeeklyViewComponent implements OnInit, OnDestroy {
 		});
 	}
 
-	getTotalTime(timeField: string): string {
-		let time = 0;
-
-		this.calendar.forEach((day: CalendarDay) => {
-			time += this.calendarService.getTotalTimeForDay(day, timeField);
-		});
-
-		return this.formatTimeToString(time);
-	}
-
-	getTimeEntries(projIds?: number[]): void {
+	getTimeEntries(projIds?: number[], disableAnimation: boolean = false): void {
+		this.animationDisabled = disableAnimation;
+		this.loadingService.addLoading();
 		this.calendarService.getTimeEntries(this.startDay, this.daysInCalendar)
+			.finally(() => {
+				this.loadingService.removeLoading();
+				setTimeout(() => this.animationDisabled = false, 500);
+			})
 			.subscribe((res) => {
 				this.timeEntries = res;
+
 				if (projIds) {
 					this.filterByProject(projIds);
 				} else {
 					this.filterByProject();
 				}
+
 				this.sortTimeEntriesByDate();
 			});
 	}
@@ -107,13 +110,6 @@ export class CalendarWeeklyViewComponent implements OnInit, OnDestroy {
 		} else {
 			this.projectTimeEntries = this.timeEntries;
 		}
-	}
-
-	formatTimeToString(s: number): string {
-		let m = Math.floor(s / 60);
-		let h = Math.floor(m / 60);
-		m = m - h * 60;
-		return (((h > 99) ? ('' + h) : ('00' + h).slice(-2)) + ':' + ('00' + m).slice(-2));
 	}
 
 	onResize(event): void {
@@ -166,8 +162,9 @@ export class CalendarWeeklyViewComponent implements OnInit, OnDestroy {
 				}
 			});
 		});
-		this.calendar = newCalendar;
-		this.calendarService.calendar = newCalendar;
+
+		this.setAnimationDelayArray(newCalendar);
+		this.setCalendar(newCalendar);
 	}
 
 	ngOnDestroy() {
@@ -178,6 +175,37 @@ export class CalendarWeeklyViewComponent implements OnInit, OnDestroy {
 	private moveDate(date: string, dif: number): string {
 		let newDate = moment(date).toDate();
 		return DateUtils.formatDateToString(newDate.setDate(newDate.getDate() + dif));
+	}
+
+	private isDayNotChanged(oldDay: CalendarDay, newDay: CalendarDay): boolean {
+		return !!oldDay && oldDay.timeEntries.length === newDay.timeEntries.length &&
+			oldDay.timeEntries.every((item, i) => item.id === newDay.timeEntries[i].id);
+	}
+
+	private setAnimationDelayArray(newCalendar: CalendarDay[]): void {
+		let delay: number = 500;
+		this.animationDelayArray = [];
+
+		newCalendar.forEach((day: CalendarDay, i) => {
+			if (!this.isDayNotChanged(this.calendar[i], day)) {
+				this.animationDelayArray[i] = delay;
+				delay += 100;
+			}
+		});
+	}
+
+	private setCalendar(newCalendar: CalendarDay[]): void {
+		if (newCalendar.length === this.calendar.length) {
+			newCalendar.forEach((day, i) => {
+				if (this.calendar[i].date !== day.date || this.animationDelayArray[i] > 0) {
+					this.calendar[i] = day;
+				}
+			});
+		} else {
+			this.calendar = newCalendar;
+		}
+
+		this.calendarService.calendar = newCalendar;
 	}
 
 	private triggerAnimation(oldDate: string, newDate: string): void {

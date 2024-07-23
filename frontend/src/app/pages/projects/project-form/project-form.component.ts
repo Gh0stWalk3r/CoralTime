@@ -1,11 +1,14 @@
-import { ClientsService } from '../../../services/clients.service';
 import { Component, OnInit, Output, EventEmitter, Input } from '@angular/core';
+import { NgForm } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Observable } from 'rxjs/Observable';
+import { ArrayUtils } from '../../../core/object-utils';
 import { Project } from '../../../models/project';
 import { Client } from '../../../models/client';
-import { ArrayUtils } from '../../../core/object-utils';
+import { ClientsService } from '../../../services/clients.service';
 import { ProjectsService } from '../../../services/projects.service';
+import { LoadingMaskService } from '../../../shared/loading-indicator/loading-mask.service';
+import { hexToNumber, numberToHex } from '../../../shared/form/color-picker/color-picker.component';
 
 export class FormProject {
 	id: number;
@@ -13,7 +16,7 @@ export class FormProject {
 	clientId: number;
 	clientName: string;
 	clientIsActive: boolean;
-	color: number;
+	color: string;
 	description: string;
 	isActive: boolean;
 	isPrivate: boolean;
@@ -25,7 +28,7 @@ export class FormProject {
 		instance.clientId = project.clientId;
 		instance.clientName = project.clientName;
 		instance.clientIsActive = project.clientIsActive;
-		instance.color = project.color ? project.color : 0;
+		instance.color = numberToHex(project.color, true);
 		instance.description = project.description;
 		instance.isActive = project.id ? project.isActive : true;
 		instance.isPrivate = project.isPrivate;
@@ -39,7 +42,7 @@ export class FormProject {
 		project.clientId = this.clientId;
 		project.clientName = this.clientName;
 		project.clientIsActive = this.clientIsActive;
-		project.color = this.color;
+		project.color = hexToNumber(this.color);
 		project.description = this.description;
 		project.isActive = this.isActive;
 		project.isPrivate = this.isPrivate;
@@ -63,9 +66,12 @@ export class ProjectFormComponent implements OnInit {
 	defaultClientName: string;
 	dialogHeader: string;
 	isClientSelectDisabled: boolean;
+	isClientsLoading: boolean;
 	isNewProject: boolean;
 	isRequestLoading: boolean;
+	isValidateLoading: boolean;
 	model: FormProject;
+	showErrors: boolean[] = []; // [showColorError, showNameError]
 	showNameError: boolean;
 	stateModel: any;
 	stateText: string;
@@ -77,20 +83,13 @@ export class ProjectFormComponent implements OnInit {
 	];
 
 	constructor(private clientsService: ClientsService,
+	            private loadingService: LoadingMaskService,
 	            private projectsService: ProjectsService,
 	            private translatePipe: TranslatePipe) {
 	}
 
 	ngOnInit() {
-		this.clientsService.getClients().subscribe((clients) => {
-			this.clients = clients;
-			this.clientModel = this.clients.filter((client) => client.id === this.project.clientId)[0];
-
-			if (this.model.clientName && !this.clientModel) {
-				this.defaultClientName = this.model.clientName + ' (archived)';
-				this.isClientSelectDisabled = true;
-			}
-		});
+		this.getClients();
 
 		let project = this.project;
 		this.isNewProject = !project;
@@ -100,6 +99,21 @@ export class ProjectFormComponent implements OnInit {
 		this.model = FormProject.formProject(this.project);
 		this.stateModel = ArrayUtils.findByProperty(this.states, 'value', this.model.isActive);
 		this.stateText = this.project.isActive ? '' : 'Archived project is not suggested for time tracking in calendar. Time entries are read only for team members, but still editable for managers.';
+	}
+
+	getClients(): void {
+		this.isClientsLoading = true;
+		this.clientsService.getClients()
+			.finally(() => this.isClientsLoading = false)
+			.subscribe((clients) => {
+				this.clients = clients;
+				this.clientModel = this.clients.filter((client) => client.id === this.project.clientId)[0];
+
+				if (this.model.clientName && !this.clientModel) {
+					this.defaultClientName = this.model.clientName + ' (archived)';
+					this.isClientSelectDisabled = true;
+				}
+			});
 	}
 
 	stateOnChange(): void {
@@ -112,15 +126,15 @@ export class ProjectFormComponent implements OnInit {
 		this.model.clientId = this.clientModel.id;
 	}
 
-	validateAndSubmit(): void {
-		this.isRequestLoading = true;
-		this.validateForm().subscribe((isFormInvalid: boolean) => {
-				this.isRequestLoading = false;
-				if (!isFormInvalid) {
+	validateAndSubmit(form: NgForm): void {
+		this.isValidateLoading = true;
+		this.validateForm(form)
+			.finally(() => this.isValidateLoading = false)
+			.subscribe((isFormValid: boolean) => {
+				if (isFormValid) {
 					this.submit();
 				}
-			},
-			() => this.isRequestLoading = false);
+			});
 	}
 
 	private submit(): void {
@@ -134,31 +148,39 @@ export class ProjectFormComponent implements OnInit {
 		}
 
 		this.isRequestLoading = true;
-		submitObservable.toPromise().then(
-			() => {
-				this.isRequestLoading = false;
-				this.onSubmit.emit({
-					isNewProject: this.isNewProject
-				});
-			},
-			error => this.onSubmit.emit({
-				isNewProject: this.isNewProject,
-				error: error
-			}));
+		this.loadingService.addLoading();
+		submitObservable.finally(() => {
+			this.isRequestLoading = false;
+			this.loadingService.removeLoading();
+		})
+			.subscribe(() => {
+					this.onSubmit.emit({
+						isNewProject: this.isNewProject
+					});
+				},
+				error => this.onSubmit.emit({
+					isNewProject: this.isNewProject,
+					error: error
+				}));
 	}
 
-	private validateForm(): Observable<boolean> {
-		this.showNameError = false;
+	private validateForm(form: NgForm): Observable<boolean> {
+		this.showErrors = [false, false];
 
+		let isColorValidObservable = Observable.of(form.controls['color'].valid);
 		let isNameValidObservable: Observable<any>;
 
-		if (!this.model.name) {
+		if (!this.model.name.trim()) {
 			isNameValidObservable = Observable.of(false);
 		} else {
 			isNameValidObservable = this.projectsService.getProjectByName(this.model.name)
 				.map((project) => !project || (project.id === this.model.id));
 		}
 
-		return isNameValidObservable.map((isControlValid) => this.showNameError = !isControlValid);
+		return Observable.forkJoin(isColorValidObservable, isNameValidObservable)
+			.map((response: boolean[]) =>
+				response.map((isControlValid, i) => this.showErrors[i] = !isControlValid)
+					.every((showError) => showError === false)
+			);
 	}
 }

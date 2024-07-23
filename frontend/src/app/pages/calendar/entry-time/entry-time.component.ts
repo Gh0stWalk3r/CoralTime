@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, Input, EventEmitter, Output, OnDestroy } from '@angular/core';
+import { Component, ViewChild, ElementRef, Input, EventEmitter, Output, OnDestroy, AfterContentInit } from '@angular/core';
 import { TimeEntry } from '../../../models/calendar';
 import { MatDialog, MatDialogRef } from '@angular/material';
 import { ConfirmationComponent } from '../../../shared/confirmation/confirmation.component';
@@ -10,7 +10,7 @@ import { ObjectUtils } from '../../../core/object-utils';
 	templateUrl: 'entry-time.component.html'
 })
 
-export class EntryTimeComponent implements OnDestroy {
+export class EntryTimeComponent implements AfterContentInit, OnDestroy {
 	isOpen: boolean = false;
 	isOpenLeft: boolean = false;
 	isOpenRight: boolean = false;
@@ -20,14 +20,20 @@ export class EntryTimeComponent implements OnDestroy {
 
 	@Input() timeEntry: TimeEntry;
 	@Output() deleted: EventEmitter<void> = new EventEmitter<void>();
-	@Output() timerUpdated: EventEmitter<void> = new EventEmitter<void>();
 	@ViewChild('entryForm') entryForm;
 
+	private calendarTask: HTMLElement;
+	private calendarTaskContainer: HTMLElement;
 	private dialogRef: MatDialogRef<ConfirmationComponent>;
 
 	constructor(private calendarService: CalendarService,
 	            private dialog: MatDialog,
 	            private elementRef: ElementRef) {
+	}
+
+	ngAfterContentInit() {
+		this.calendarTask = this.elementRef.nativeElement.parentElement;
+		this.calendarTaskContainer = this.calendarTask.parentElement.parentElement;
 	}
 
 	toggleEntryTimeForm(): void {
@@ -50,6 +56,7 @@ export class EntryTimeComponent implements OnDestroy {
 				this.openConfirmationDialog();
 			} else {
 				this.calendarService.isTimeEntryFormOpened = false;
+				this.checkIsPlaceAvailable(false);
 				this.deleted.emit();
 			}
 			return;
@@ -60,6 +67,7 @@ export class EntryTimeComponent implements OnDestroy {
 		} else {
 			this.isOpen = false;
 			this.calendarService.isTimeEntryFormOpened = false;
+			this.checkIsPlaceAvailable(false);
 		}
 	}
 
@@ -70,6 +78,8 @@ export class EntryTimeComponent implements OnDestroy {
 		this.isOpenLeft = !this.isOpenRight && this.isLeftSideClear(this.elementRef.nativeElement);
 		this.isOpenMobile = !this.isOpenRight && !this.isOpenLeft;
 		this.isDirectionTop = !this.isBottomClear(this.elementRef.nativeElement) && this.isTopClear(this.elementRef.nativeElement);
+
+		this.checkIsPlaceAvailable(true);
 
 		if (!this.isOpenMobile) {
 			this.scrollWindow(this.elementRef.nativeElement);
@@ -97,8 +107,28 @@ export class EntryTimeComponent implements OnDestroy {
 		this.calendarService.isTimeEntryFormOpened = false;
 	}
 
+	private checkIsPlaceAvailable(isOpen: boolean): void {
+		if (!isOpen) {
+			this.calendarTaskContainer.style.paddingBottom = '0';
+			document.body.classList.remove('ct-noscroll');
+			return;
+		}
+
+		if (this.isOpenMobile) {
+			document.body.classList.add('ct-noscroll');
+		}
+
+		if (!this.isDirectionTop && !this.isOpenMobile) {
+			this.calendarTaskContainer.style.paddingBottom = 485 - this.calendarTask.clientHeight + 'px';
+		}
+
+		if (!this.isDirectionTop && this.isOpenMobile) {
+			this.calendarTaskContainer.style.paddingBottom = '510px';
+		}
+	}
+
 	private isRightSideClear(el: HTMLElement): boolean {
-		return window.innerWidth > el.getBoundingClientRect().right + 300;
+		return window.innerWidth > el.getBoundingClientRect().right + 365;
 	}
 
 	private isLeftSideClear(el: HTMLElement): boolean {
@@ -110,7 +140,7 @@ export class EntryTimeComponent implements OnDestroy {
 	}
 
 	private isTopClear(el: HTMLElement): boolean {
-		return el.getBoundingClientRect().bottom > 560;
+		return el.getBoundingClientRect().bottom > 800;
 	}
 
 	private changeCloseParameter(): void {
@@ -124,10 +154,10 @@ export class EntryTimeComponent implements OnDestroy {
 
 	private scrollWindow(el: HTMLElement): void {
 		let elTop: number = el.getBoundingClientRect().top;
-		if (!this.isDirectionTop && elTop < 195) {
+		if (!this.isDirectionTop && elTop < 295) {
 			window.scrollTo({
 				left: 0,
-				top: elTop + window.scrollY - 195,
+				top: elTop + window.scrollY - 295,
 				behavior: 'smooth'
 			});
 		}
@@ -136,7 +166,7 @@ export class EntryTimeComponent implements OnDestroy {
 		if (this.isDirectionTop && elBottom > window.innerHeight) {
 			window.scrollTo({
 				left: 0,
-				top: elBottom - window.innerHeight + window.scrollY + 5,
+				top: elBottom - window.innerHeight + window.scrollY + 10,
 				behavior: 'smooth'
 			});
 		}

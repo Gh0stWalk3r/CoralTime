@@ -1,19 +1,20 @@
 $fieldHeight: 30px;
 $selectHeight: 35px;
+$selectItemBgHover: $gray-page-background;
 $baseFont: 14px;
 $smallFont: 12px;
 
 $button-font-size: 17px;
 
-$baseFontFamily: $robotoRegular;
-$navFontFamily: $roboto;
+$baseFontFamily: $kohoFont;
+$navFontFamily: $kohoFont;
 
 body, html {
   margin: 0;
   min-width: 320px;
   font-size: 14px;
   font-family: $baseFontFamily;
-  color: $nav-background;
+  letter-spacing: .2px;
 }
 
 ul, li {
@@ -38,14 +39,11 @@ a {
 textarea {
   resize: none;
   font-family: inherit;
-  color: $nav-background;
+  color: $grid-text;
 }
 
 select, input, textarea, form {
   font-family: inherit;
-  -webkit-border-radius: 0 !important;
-  -moz-border-radius: 0 !important;
-  border-radius: 0 !important;
   box-shadow: none !important;
 
   &:focus {
@@ -57,13 +55,13 @@ h1 {
   font-family: inherit;
   font-weight: 700;
   font-size: 38px;
-  color: $nav-background;
+  color: #374456;
 }
 
 h2, h3, h4 {
   font-family: inherit;
   font-weight: 700;
-  color: $nav-background;
+  color: #374456;
 }
 
 h5 {
@@ -90,17 +88,13 @@ h5 {
   font-weight: 700;
 }
 
-.ui-column-title, .ct-input-label {
-  font-family: inherit;
-  font-size: $baseFont;
-}
-
 .ct-input-label {
+  font-size: $baseFont;
   color: $gray-text;
 }
 
 .ct-blue-text {
-  color: $nav-link-border;
+  color: $main-blue;
 }
 
 .ct-inactive-title {
@@ -111,7 +105,7 @@ h5 {
   background: none;
   padding: 0;
   cursor: pointer;
-  color: $nav-background;
+  color: #374456;
   text-decoration: none;
   border: none;
   border-bottom: 1px dotted;
@@ -122,8 +116,8 @@ h5 {
 
   &:focus, &:hover {
     outline: none;
-    color: $nav-link-border;
-    border-bottom-color: $nav-link-border;
+    color: $main-blue;
+    border-bottom-color: $main-blue;
   }
 }
 
@@ -149,9 +143,9 @@ h5 {
 }
 
 .ct-nav-logo {
-  height: 40px;
-  width: 40px;
-  background: url(./assets/icons/ct.logo.svg) no-repeat center center;
+  height: 36px;
+  width: 36px;
+  background: url(./assets/icons/logo.svg) no-repeat center center;
   display: inline-block;
   background-size: 100%;
 }
@@ -167,12 +161,12 @@ h5 {
 .ct-submit {
   height: 40px;
   letter-spacing: .5px;
-  width: 115px;
-  font-size: $button-font-size !important;
+  width: 100px;
+  font-size: $button-font-size;
   float: right;
   font-family: inherit;
   box-shadow: none;
-  border-radius: 0 !important;
+  border-radius: 0;
 }
 
 .ct-submit[disabled] {
@@ -180,22 +174,23 @@ h5 {
 }
 
 .ct-close {
-  color: $nav-link-border;
-  font-size: 16px;
+  color: $main-blue;
+  font-size: 14px;
   font-family: inherit;
-  line-height: 16px;
+  line-height: 16px !important;
   cursor: pointer;
   transition: .3s;
   display: inline-block;
   position: relative;
+  top: 25px;
 
   &:hover {
-    color: $nav-background !important;
+    color: #374456;
   }
 }
 
 .ct-primary-button {
-  background: $nav-link-border;
+  background: $main-blue;
   color: $primary-btn-text !important;
 }
 
@@ -204,38 +199,14 @@ h5 {
   color: $primary-btn-text;
 }
 
-.ct-add-link {
-  cursor: pointer;
-  a {
-    color: $nav-link-border;
-    display: inline-block;
-    text-decoration: none;
-    font-family: inherit;
-    text-transform: capitalize;
-  }
-
-  i {
-    width: 23px;
-    height: 14px;
-    text-align: center;
-    padding: 2px 0 0 0;
-    margin-right: 5px;
-    font-size: 20px;
-    position: relative;
-    top: 2px;
-    font-family: inherit;
-    color: $nav-link-border;
-  }
-}
-
-.ct-add-link:hover, .ct-add-link:hover a {
-  color: $nav-link-border !important;
-}
-
 .ct-link {
   border-bottom: 1px dotted;
   text-decoration: none;
   cursor: pointer;
+}
+
+.ct-default-text {
+  color: #374456;
 }
 
 .mat-input-underline {
@@ -247,37 +218,36 @@ h5 {
 }
 
 .ct-grid-search-filter {
-  $placeholderColor: hsla(0,0%,100%,.86);
+  $placeholderColor: hsla(0, 0%, 0%, .86);
 
   position: relative;
-  top: -59px;
-  right: 250px;
-  z-index: 997;
-  float: right;
-
   box-sizing: border-box;
+  float: right;
+  top: -50px;
+  right: 320px;
   width: 180px;
-  height: 28px;
-  background: hsla(0,0%,100%,.23);
+  z-index: 1001;
 
   .fa-search {
     position: absolute;
-    left: 10px;
-    top: 5px;
+    left: 7px;
+    top: 9px;
     font-size: 16px;
-    color: rgba(255, 255, 255, 0.86);
+    color: $main-grey;
   }
 
   .ct-input-element {
     box-sizing: border-box;
-    color: #fff;
     width: 100%;
-    height: 28px;
+    height: 35px;
     padding: 0 10px 0 30px;
-    font-family: $roboto;
-    font-weight: 300;
     background: none;
     border: 0;
+    border-bottom: 1px solid $gray-page-background;
+
+    &:focus {
+      border-color: $main-blue;
+    }
 
     &::-webkit-input-placeholder {
       color: $placeholderColor;
@@ -303,7 +273,7 @@ h5 {
   text-transform: capitalize;
   font-family: inherit;
   font-size: 14px;
-  color: $nav-background;
+  color: #374456;
 }
 
 .ct-paginator-container {
@@ -313,7 +283,7 @@ h5 {
   right: 20px;
   left: 20px;
   width: calc(100% - 40px);
-  border-top: 1px solid $border-сolor;
+  border-top: 1px solid $border-color;
   padding-top: 17px;
 
   .ct-paginator-label {
@@ -334,33 +304,24 @@ h5 {
 }
 
 .slimscroll-grid {
-  top: 0 !important;
-  border-radius: 0 !important;
-  margin: 0 2px !important;
-  right: -2px !important;
-  width: 4px !important;
-  background: $border-сolor !important;
+  width: 8px !important;
+  margin: 0 !important;
+  background: none !important;
   z-index: 1 !important;
 }
 
 .slimscroll-bar {
-  background-color: $nav-background !important;
+  background-color: $gray-border !important;
   right: 1px !important;
-  width: 2px !important;
-  margin: -2px 0 !important;
+  width: 6px !important;
+  margin: 0 !important;
   z-index: 2 !important;
-}
-
-.ct-button {
-  border-radius: 0 !important;
-  box-shadow: none !important;
 }
 
 .ct-button, .mat-raised-button {
   font-family: inherit !important;
-  font-size: 15px !important;
+  font-size: 14px !important;
   box-shadow: none !important;
-  border-radius: 0 !important;
 
   .mat-button-wrapper {
     font-family: inherit;
@@ -368,28 +329,110 @@ h5 {
 }
 
 .ct-button:disabled {
-  background-color: $nav-link-border !important;
+  background-color: $main-blue !important;
 }
 
 .ct-blue-button {
-  background-color: $nav-link-border;
+  background-color: $main-blue;
   border: none;
   height: 40px;
-  letter-spacing: 0.5px;
+  font-size: 14px;
   color: $primary-btn-text;
   cursor: pointer;
   outline: none;
+  border-radius: 5px !important;
   transition-duration: .3s;
 
   span {
     color: $primary-btn-text;
-    font-size: 16px;
+    font-size: 14px;
     font-family: inherit;
+  }
+
+  &[disabled] {
+    background-color: $grid-text;
+    opacity: .7;
   }
 }
 
-.ct-blue-button:hover {
-  background-color: $primary-btn-hover;
+.ct-loading {
+  &.ct-grid-button, &.ct-blue-button, &.ct-grid-link {
+    position: relative;
+    pointer-events: none;
+    cursor: default;
+
+    &:after {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 18px;
+      height: 18px;
+      content: '';
+      background: url(./assets/rolling-white.gif) no-repeat center center;
+      background-size: contain;
+    }
+  }
+
+  &.ct-grid-button:after {
+    top: 1px;
+    right: 1px;
+    width: 15px;
+    height: 15px;
+  }
+
+  &.ct-grid-link:after {
+    background-image: url(./assets/rolling-blue.gif);
+    top: 5px;
+    right: -20px;
+  }
+
+  .ct-select .fa:before {
+    display: block;
+    content: '';
+    top: 8px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    background: url(./assets/rolling-blue.gif) no-repeat center;
+    background-size: contain;
+  }
+
+  &.ct-select-ellipse .fa:before {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 18px;
+    height: 18px;
+    content: '';
+    background: url(./assets/rolling-white.gif) no-repeat center;
+    background-size: contain;
+
+    tr:hover & {
+      background-image: url(./assets/rolling-blue.gif);
+    }
+  }
+
+  &.ct-round-button {
+    pointer-events: none;
+    cursor: default;
+
+    &:after {
+      display: none;
+    }
+
+    &:before {
+      width: 18px;
+      height: 18px;
+      left: 0;
+      right: 0;
+      top: 50%;
+      transform: translateY(-8px);
+      border: none;
+      margin: auto;
+      background: url(./assets/rolling-white.gif) no-repeat center;
+      background-size: contain;
+    }
+  }
 }
 
 .ct-color-empty {
@@ -427,10 +470,10 @@ h5 {
   border-bottom: 1px dotted;
   line-height: 16px;
   margin-top: 10px;
-}
 
-.ct-see-more:hover {
-  color: $nav-menu-hover !important;
+  &:hover {
+    color: $nav-menu-hover;
+  }
 }
 
 .ct-top {
@@ -451,14 +494,14 @@ h5 {
   background: none;
   border: none;
   border-bottom: 1px dotted $gray-text;
-  font-size: 17px;
+  font-size: 14px;
   font-family: inherit;
   color: $gray-text;
   cursor: pointer;
   transition: .3s;
 
   &:hover {
-    color: $nav-background;
+    color: #374456;
   }
 
   &:focus {
@@ -487,4 +530,8 @@ h5 {
   .fa {
     font-size: 18px;
   }
+}
+
+.ct-noscroll {
+  overflow: hidden;
 }

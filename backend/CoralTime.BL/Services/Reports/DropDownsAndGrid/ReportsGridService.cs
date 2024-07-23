@@ -1,12 +1,13 @@
 ﻿using CoralTime.Common.Exceptions;
 using CoralTime.DAL.ConvertModelToView;
 using CoralTime.DAL.Models;
-using CoralTime.ViewModels.Reports;
 using CoralTime.ViewModels.Reports.Request.Grid;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CoralTime.DAL.Models.Member;
+using CoralTime.ViewModels.Reports.Responce.Grid.ReportTotal;
 using static CoralTime.Common.Constants.Constants;
 
 namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
@@ -15,18 +16,14 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
     {
         #region Get DropDowns and Grid. Filtration By / Grouping By: Projects, Users, Dates, Clients.
 
-        public ReportTotalView GetReportsGrid(ReportsGridView reportsGridView)
+        public ReportTotalView GetReportsGrid(ReportsGridView reportsGridView, Member memberFromNotification = null)
         {
-            var dateFrom = reportsGridView.CurrentQuery.DateFrom;
-            var dateTo = reportsGridView.CurrentQuery.DateTo;
+            if (memberFromNotification != null)
+            {
+                UpdateReportMembers(memberFromNotification);
+            }
 
-            var groupById = reportsGridView.CurrentQuery.GroupById;
-            var showColumnIds = reportsGridView.CurrentQuery.ShowColumnIds;
-
-            var dateFormatId = reportsGridView.DateFormatId;
-
-            var reportTotalView = new ReportTotalView(groupById, showColumnIds, dateFormatId, dateFrom, dateTo);
-
+            var reportTotalView = InitializeReportTotalView(reportsGridView);
             var filteredTimeEntries = GetFilteredTimeEntries(reportsGridView);
             if (filteredTimeEntries.Any())
             {
@@ -39,7 +36,8 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
                             .OrderBy(x => x.Key.Name)
                             .ToDictionary(key => key.Key, value => value.OrderBy(x => x.Date).ToList());
 
-                        return reportTotalView.GetView(timeEntriesGroupByProjects);
+                        reportTotalView = reportTotalView.GetView(timeEntriesGroupByProjects);
+                        break;
                     }
 
                     case (int) ReportsGroupByIds.User:
@@ -49,7 +47,8 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
                             .OrderBy(x => x.Key.FullName)
                             .ToDictionary(key => key.Key, value => value.OrderBy(x => x.Date).ToList());
 
-                        return reportTotalView.GetView(timeEntriesGroupByMembers);
+                        reportTotalView =  reportTotalView.GetView(timeEntriesGroupByMembers);
+                        break;
                     }
 
                     case (int) ReportsGroupByIds.Date:
@@ -59,21 +58,86 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
                             .OrderBy(x => x.Key)
                             .ToDictionary(key => key.Key, key => key.OrderBy(x => x.Date).ToList());
 
-                        return reportTotalView.GetView(timeEntriesGroupByDate);
+                        reportTotalView =  reportTotalView.GetView(timeEntriesGroupByDate);
+                        break;
                     }
 
                     case (int) ReportsGroupByIds.Client:
                     {
                         var timeEntriesGroupByClients = filteredTimeEntries
-                            .GroupBy(i => i.Project.Client == null ? CreateWithOutClientInstance() : i.Project.Client)
+                            .GroupBy(i => i.Project.Client ?? CreateWithOutClientInstance())
                             .OrderBy(x => x.Key.Name)
                             .ToDictionary(key => key.Key, value => value.OrderBy(x => x.Date).ToList());
 
-                        return reportTotalView.GetView(timeEntriesGroupByClients);
+                        reportTotalView =  reportTotalView.GetView(timeEntriesGroupByClients);
+                        break;
                     }
                 }
             }
 
+            SetupReport(reportTotalView, (ReportsGroupByIds)reportsGridView.CurrentQuery.GroupById);
+            return reportTotalView;
+        }
+
+        private void SetupReport(ReportTotalView report, ReportsGroupByIds reportsGroup)
+        {
+            report.Items = null;
+            report.GroupByType = null;
+            if (reportsGroup == ReportsGroupByIds.User)
+            {
+                foreach (var item in report.GroupedItems)
+                {
+                    item.GroupByType.MemberUrlIcon = GetMemberIcon(item.GroupByType.MemberId);
+                    item.GroupByType.WorkingHoursPerDay = Uow.MemberRepository.LinkedCacheGetById(item.GroupByType.MemberId)?.WorkingHoursPerDay;
+                }
+            }
+            else
+            {
+                AddMemberIcons(report);
+            }
+        }
+
+        #region Add member icons in report
+
+        private Dictionary<int, string> iconUrls = new Dictionary<int, string>();
+
+        private string GetMemberIcon(int memberId)
+        {
+            if (!iconUrls.ContainsKey(memberId))
+            {
+                var iconUrl = _imageService.GetUrlIcon(memberId);
+                iconUrls.Add(memberId, iconUrl);
+                return iconUrl;
+            }
+            return iconUrls[memberId];
+        }
+
+        private void AddMemberIcons(ReportTotalView report)
+        {
+            report.MemberUrlIcon = GetMemberIcon(report.MemberId);
+            foreach (var item in report.GroupedItems)
+            {
+                item.MemberUrlIcon = GetMemberIcon(item.MemberId);
+                foreach (var entryItem in item.Items)
+                {
+                    entryItem.MemberUrlIcon = GetMemberIcon(entryItem.MemberId);
+                }
+            }
+        }
+
+        #endregion Add member icons in report
+
+        public ReportTotalView InitializeReportTotalView(ReportsGridView reportsGridView)
+        {
+            var dateFrom = reportsGridView.CurrentQuery.DateFrom;
+            var dateTo = reportsGridView.CurrentQuery.DateTo;
+
+            var groupById = reportsGridView.CurrentQuery.GroupById;
+            var showColumnIds = reportsGridView.CurrentQuery.ShowColumnIds;
+
+            var dateFormatId = reportsGridView.DateFormatId;
+
+            var reportTotalView = new ReportTotalView(groupById, showColumnIds, dateFormatId, dateFrom, dateTo);
             return reportTotalView;
         }
 
@@ -82,13 +146,12 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
             var queryDateFrom = reportsGridView.CurrentQuery.DateFrom;
             var queryDateTo = reportsGridView.CurrentQuery.DateTo;
 
-            var memberImpersonatedId = MemberImpersonated.Id;
             var currentQuery = reportsGridView.CurrentQuery;
 
             var dateStaticId = reportsGridView.CurrentQuery.DateStaticId;
             if (dateStaticId != null)
             {
-                var dateStaticExtend = CreateDateStaticExtend(dateStaticId);
+                var dateStaticExtend = CreateDateStaticExtend(dateStaticId, reportsGridView.GetTodayDate);
                 var calculateByStaticIdDateFrom = dateStaticExtend.DateFrom;
                 var calculateByStaticIdDateTo = dateStaticExtend.DateTo;
 
@@ -98,7 +161,7 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
                 }
             }
 
-            _reportsSettingsService.UpdateCurrentQuery(currentQuery, memberImpersonatedId);
+            _reportsSettingsService.UpdateCurrentQuery(currentQuery);
         }
 
         #endregion
@@ -107,20 +170,18 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
 
         private List<TimeEntry> GetFilteredTimeEntries(ReportsGridView reportsGridView)
         {
-            var memberImpersonated = MemberImpersonated;
-
             var dateFrom = new DateTime();
             var dateTo = new DateTime();
 
             FillDatesByDateStaticOrDateFromTo(reportsGridView, ref dateFrom, ref dateTo);
 
             // By Dates (default grouping, i.e. "Group by None"; direct order).
-            var timeEntriesByDateOfUser = GetTimeEntryByDate(memberImpersonated, dateFrom, dateTo);
+            var timeEntriesByDateOfUser = GetTimeEntryByDate(dateFrom, dateTo);
 
             // By Projects.
             if (reportsGridView.CurrentQuery?.ProjectIds != null && reportsGridView.CurrentQuery.ProjectIds.Length > 0)
             {
-                CheckAndSetIfInFilterChooseSingleProject(reportsGridView, timeEntriesByDateOfUser);
+                CheckAndSetIfInFilterChooseSingleProject(reportsGridView);
 
                 timeEntriesByDateOfUser = timeEntriesByDateOfUser.Where(x => reportsGridView.CurrentQuery.ProjectIds.Contains(x.ProjectId));
             }
@@ -153,7 +214,7 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
             
             if (isFilledDateStaticIdAndDateFromDateTo)
             {
-                var dateStaticExtend = CreateDateStaticExtend(dateStaticId);
+                var dateStaticExtend = CreateDateStaticExtend(dateStaticId, reportsGridView.GetTodayDate);
 
                 dateFrom = dateStaticExtend.DateFrom;
                 dateTo = dateStaticExtend.DateTo;
@@ -166,7 +227,7 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
             }
         }
 
-        private void CheckAndSetIfInFilterChooseSingleProject(ReportsGridView reportsGridData, IQueryable<TimeEntry> timeEntriesByDateOfUser)
+        private void CheckAndSetIfInFilterChooseSingleProject(ReportsGridView reportsGridData)
         {
             if (reportsGridData.CurrentQuery.ProjectIds.Length == 1)
             {
@@ -175,10 +236,10 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
             }
         }
 
-        private IQueryable<TimeEntry> GetTimeEntryByDate(Member currentMember, DateTime dateFrom, DateTime dateTo)
+        private IQueryable<TimeEntry> GetTimeEntryByDate(DateTime dateFrom, DateTime dateTo)
         {
             // #0 Get timeEntriesByDate.s
-            var timeEntriesByDate = Uow.TimeEntryRepository.GetQueryWithIncludes()
+            var timeEntriesByDate = Uow.TimeEntryRepository.GetQuery()
                 .Include(x => x.Project).ThenInclude(x => x.Client)
                 .Include(x => x.Member.User)
                 .Include(x => x.TaskType)
@@ -186,7 +247,7 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
 
             #region Constrain for Admin: return all TimeEntries.
 
-            if (currentMember.User.IsAdmin)
+            if (ReportMemberImpersonated.User.IsAdmin)
             {
                 return timeEntriesByDate;
             }
@@ -195,27 +256,25 @@ namespace CoralTime.BL.Services.Reports.DropDownsAndGrid
 
             #region Constrain for Member. return only TimeEntries that manager is assign.
 
-            if (!currentMember.User.IsAdmin && !currentMember.User.IsManager)
+            if (!ReportMemberImpersonated.User.IsAdmin && !ReportMemberImpersonated.User.IsManager)
             {
                 // #1. TimeEntries. Get tEntries for this member.
-                timeEntriesByDate = timeEntriesByDate.Where(t => t.MemberId == currentMember.Id);
+                timeEntriesByDate = timeEntriesByDate.Where(t => t.MemberId == ReportMemberImpersonated.Id);
             }
 
             #endregion
 
             #region Constrain for Manager : return #1 TimeEntries that currentMember is assign, #2 TimeEntries for not assign users at Projects (but TEntries was saved), #4 TimeEntries with global projects that not contains in result.
 
-            if (!currentMember.User.IsAdmin && currentMember.User.IsManager)
+            if (!ReportMemberImpersonated.User.IsAdmin && ReportMemberImpersonated.User.IsManager)
             {
-                var managerRoleId = Uow.ProjectRoleRepository.LinkedCacheGetList().FirstOrDefault(r => r.Name == ProjectRoleManager).Id;
-
                 var managerProjectIds = Uow.MemberProjectRoleRepository.LinkedCacheGetList()
-                    .Where(r => r.MemberId == currentMember.Id && r.RoleId == managerRoleId)
+                    .Where(r => r.MemberId == ReportMemberImpersonated.Id && r.RoleId == Uow.ProjectRoleRepository.GetManagerRoleId())
                     .Select(x => x.ProjectId)
                     .ToArray();
 
                 // #1. TimeEntries. Get tEntries for this member and tEntries that is current member is Manager!.
-                timeEntriesByDate = timeEntriesByDate.Where(t => t.MemberId == currentMember.Id || managerProjectIds.Contains(t.ProjectId));
+                timeEntriesByDate = timeEntriesByDate.Where(t => t.MemberId == ReportMemberImpersonated.Id || managerProjectIds.Contains(t.ProjectId));
             }
 
             return timeEntriesByDate;

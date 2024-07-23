@@ -1,5 +1,7 @@
-﻿using CoralTime.DAL.Models;
+﻿using CoralTime.Common.Constants;
+using CoralTime.DAL.Models;
 using CoralTime.ViewModels.Azure;
+using IdentityServer4.Models;
 using IdentityServer4.Validation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
@@ -14,7 +16,6 @@ using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using static IdentityModel.OidcConstants;
 
 namespace CoralTime.Services
 {
@@ -37,21 +38,15 @@ namespace CoralTime.Services
             _memoryCache = memoryCache;
         }
 
-        public string GrantType
-        {
-            get
-            {
-                return "azureAuth";
-            }
-        }
+        public string GrantType => Constants.Authorization.CoralTimeAzure.GrantType;
 
         public async Task ValidateAsync(ExtensionGrantValidationContext context)
         {
-            var userToken = context.Request.Raw.Get("id_token");
+            var userToken = context.Request.Raw.Get(Constants.Authorization.CoralTimeAzure.UserTokenHeader);
 
             if (string.IsNullOrEmpty(userToken))
             {
-                context.Result = new GrantValidationResult(TokenErrors.InvalidGrant, null);
+                context.Result = new GrantValidationResult(TokenRequestErrors.InvalidRequest, "Token is empty");
                 return;
             }
 
@@ -60,30 +55,26 @@ namespace CoralTime.Services
                 var token = await ValidateTokenAsync(userToken);
                 if (token == null)
                 {
-                    context.Result = new GrantValidationResult(TokenErrors.InvalidGrant, null);
+                    context.Result = new GrantValidationResult(TokenRequestErrors.InvalidGrant, "Invalid token");
                     return;
                 }
 
-                var userName = token.Claims.FirstOrDefault(m => m.Type == "unique_name")?.Value;
+                var userName = token.Claims.FirstOrDefault(m => m.Type == Constants.Authorization.CoralTimeAzure.UserNameClaim)?.Value;
 
-                // get user's identity
                 var user = await _userManager.FindByNameAsync(userName);
 
                 if (user != null && ((user?.IsActive) ?? false))
                 {
-                    context.Result = new GrantValidationResult(user.Id, "azure");
+                    context.Result = new GrantValidationResult(user.Id, Constants.Authorization.CoralTimeAzure.AuthenticationMethod);
                     return;
                 }
-                else
-                {
-                    return;
-                }
+
+                context.Result = new GrantValidationResult(TokenRequestErrors.InvalidGrant, "User does not exist");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                context.Result = new GrantValidationResult(TokenErrors.InvalidGrant, null);
-                return;
+                context.Result = new GrantValidationResult(TokenRequestErrors.InvalidGrant, null);
             }
         }
 
@@ -111,7 +102,7 @@ namespace CoralTime.Services
             };
 
                 var jwtHandler = new JwtSecurityTokenHandler();
-                jwtHandler.ValidateToken(jwtToken, tokenValidationParameters, out SecurityToken securityToken);
+                jwtHandler.ValidateToken(jwtToken, tokenValidationParameters, out var securityToken);
                 token = securityToken as JwtSecurityToken;
             }
             catch (Exception ex)
@@ -125,16 +116,19 @@ namespace CoralTime.Services
 
         private async Task<CertificateKeys> GetCertificateKeysAsync()
         {
-            var result = _memoryCache.TryGetValue("CertificateKeys", out CertificateKeys certificates);
-            var timeResult = _memoryCache.TryGetValue("CertificateKeysTime", out DateTime certificatesTime);
-            if (!result || !timeResult || DateTime.Now.Subtract(certificatesTime).TotalHours >= 24)
+            var certificateKeys = _memoryCache.TryGetValue(Constants.CertificateKeys, out CertificateKeys certificates);
+            var certificateKeysTime = _memoryCache.TryGetValue(Constants.CertificateKeysTime, out DateTime certificatesTime);
+
+            if (!certificateKeys || !certificateKeysTime || DateTime.Now.Subtract(certificatesTime).TotalHours >= 24)
             {
                 var url = _config["Authentication:AzureAd:CertificatesUrl"];
                 var client = new HttpClient();
                 var json = await client.GetStringAsync(url);
+
                 certificates = JsonConvert.DeserializeObject<CertificateKeys>(json);
-                _memoryCache.Set("CertificateKeysTime", DateTime.Now);
-                _memoryCache.Set("CertificateKeys", certificates);
+                
+                _memoryCache.Set(Constants.CertificateKeysTime, DateTime.Now);
+                _memoryCache.Set(Constants.CertificateKeys, certificates);
             }
 
             return certificates;

@@ -1,174 +1,217 @@
 <div class="ct-reports-page">
     <div class="ct-page-container">
-        <div class="ct-page-header">
-            <div class="ct-reports-settings">
-                <div class="ct-query-block">
-                    <button class="ct-select-open-button" [class.ct-disabled]="!queryItems.length">
-                        <i class="material-icons" (click)="querySelect.toggleSelect()">more_horiz</i>
-                    </button>
-                    <ct-select [name]="'query'" #querySelect
-                               [displayName]="'queryName'" [trackBy]="'queryId'"
-                               [(ngModel)]="queryModel"
-                               (change)="queryOnChange(queryModel)"
-                               [options]="queryItems">
-                    </ct-select>
-                    <span class="ct-query-text">{{queryModel?.queryName || 'Default query'}}</span>
-                    <span *ngIf="!queryModel" class="ct-close" (click)="openQueryDialog()">Create</span>
-                    <span *ngIf="queryModel" class="ct-close" (click)="deleteQuery(queryModel)">Delete</span>
-                </div>
-                <div class="ct-reports-actions-block">
-                    <div class="ct-reports-time-period">
-                        <a class="ct-prev" (click)="getNewPeriod(false)"></a>
-                        <a class="ct-next" (click)="getNewPeriod()"></a>
-                        <div>
-                            <span (click)="toggleRangeDatepicker()">{{dateString}}</span>
-                            <i *ngIf="isDatepickerShown" class="fa fa-times" (click)="cancelUpdatingReportGrid()"></i>
-                            <i *ngIf="!isDatepickerShown" class="fa fa-sort-desc" (click)="toggleRangeDatepicker()"></i>
-                        </div>
-                    </div>
-                    <ct-range-datepicker *ngIf="isDatepickerShown"
-                                         [class.ct-datepicker-opened]="isDatepickerAnimating"
-                                         [dateResponse]="dateResponse"
-                                         [datePeriodList]="reportDropdowns?.values.dateStatic"
-                                         [firstDayOfWeek]="firstDayOfWeek"
-                                         (clickOutside)="toggleRangeDatepicker($event)"
-                                         (onPeriodChanged)="datePeriodOnChange($event)"
-                                         (closed)="toggleRangeDatepicker()"></ct-range-datepicker>
-                    <div class="ct-btn-block">
-                        <div class="ct-export-as">
-                            <span class="ct-export-button" (click)="menu.toggleMenu()" title="Export reports"></span>
-                            <ct-menu #menu [xPosition]="'before'" class="ct-actions-drop-menu">
-                                <ct-menu-item>
-                                    <a mat-ripple (click)="exportAs(0)">Export as Excel</a>
-                                </ct-menu-item>
-                                <!--<ct-menu-item>-->
-                                    <!--<a mat-ripple (click)="exportAs(1)">Export as CSV</a>-->
-                                <!--</ct-menu-item>-->
-                                <ct-menu-item>
-                                    <a mat-ripple (click)="exportAs(2)">Export as PDF</a>
-                                </ct-menu-item>
-                            </ct-menu>
-                        </div>
-                        <span class="ct-print-button" (click)="checkDataAndPrintPage()" title="Print page"></span>
-                        <span class="ct-send-button" (click)="openSendReportsDialog()" title="Send reports"></span>
-                    </div>
-                    <div class="ct-columns-settings ct-btn-block">
-                        <ct-multiselect class="ct-columns-multiselect ct-columns-button" title="Columns settings"
-                                        [styleClass]="'ct-reports-settings-multiselect'"
-                                        [(ngModel)]="reportFilters.showColumnIds"
-                                        (onSubmitAction)="submitSettings(reportFilters.showColumnIds)"
-                                        [showSubmitButton]="true"
-                                        [showActionsPanel]="false"
-                                        [showFilterSearch]="false"
-                                        [appendTo]="'body'"
-                                        [options]="showColumnItems">
-                        </ct-multiselect>
-                    </div>
-                </div>
-            </div>
-
-            <div class="ct-report-filters">
-                <div class="ct-report-filters-block">
-                    <label class="ct-filter-label">Filter by</label>
-                    <ct-multiselect
-                            [styleClass]="'ct-reports-multiselect'"
-                            [(ngModel)]="reportFilters.clientIds"
-                            (onSubmitAction)="toggleClient(reportFilters.clientIds)"
-                            [showSubmitButton]="true"
-                            [appendTo]="'body'"
-                            [defaultLabel]="'All Clients'"
-                            [options]="clientItems"
-                            [extraActionTitle]="showOnlyActiveClients ? 'Show archived' : 'Hide archived'"
-                            (onExtraAction)="toggleArchivedClients()"
-                            [maxSelectedLabels]="'1'"
-                            [selectedItemsLabel]="'Clients ({0})'">
-                    </ct-multiselect>
-                    <ct-multiselect
-                            [styleClass]="'ct-reports-multiselect'"
-                            [(ngModel)]="reportFilters.projectIds"
-                            (onSubmitAction)="toggleProject(reportFilters.projectIds)"
-                            [showSubmitButton]="true"
-                            [appendTo]="'body'"
-                            [defaultLabel]="'All Projects'"
-                            [options]="projectItems"
-                            [extraActionTitle]="showOnlyActiveProjects ? 'Show archived' : 'Hide archived'"
-                            (onExtraAction)="toggleArchivedProjects()"
-                            [maxSelectedLabels]="'1'"
-                            [selectedItemsLabel]="'Projects ({0})'">
-                    </ct-multiselect>
-                    <ct-multiselect
-                            *ngIf="isUsersFilterShown"
-                            [styleClass]="'ct-reports-multiselect'"
-                            [(ngModel)]="reportFilters.memberIds"
-                            (onSubmitAction)="toggleUser()"
-                            [showSubmitButton]="true"
-                            [appendTo]="'body'"
-                            [defaultLabel]="'All Users'"
-                            [options]="userItems"
-                            [extraActionTitle]="showOnlyActiveUsers ? 'Show archived' : 'Hide archived'"
-                            (onExtraAction)="toggleArchivedUsers()"
-                            [maxSelectedLabels]="'1'"
-                            [selectedItemsLabel]="'Users ({0})'">
-                    </ct-multiselect>
-                </div>
-                <div class="ct-report-filters-block">
-                    <label class="ct-filter-label">Group by</label>
-                    <ct-select [name]="'groupBy'"
-                               [defaultValue]="'Date'"
-                               [displayName]="'description'" [trackBy]="'id'"
-                               [(ngModel)]="groupModel"
-                               (change)="groupByChange()"
-                               [options]="groupByItems">
-                    </ct-select>
-                </div>
-                <span class="ct-close" (click)="resetFilters()" title="Reset filters">Reset</span>
-            </div>
-        </div>
-
-        <div *ngIf="dateResponse.datePeriod" class="ct-period-for-print ct-print-mode">
+        <div *ngIf="dateResponse?.datePeriod.dateFrom && dateResponse?.datePeriod.dateTo" class="ct-period-for-print ct-print-mode">
             Period: {{formatDate(dateResponse.datePeriod.dateFrom)}} - {{formatDate(dateResponse.datePeriod.dateTo)}}
         </div>
-        <div class="ct-reports-data" #scrollContainer>
-            <ct-reports-grid *ngFor="let grid of gridData"
-                             class="ct-reports-grid"
-                             [gridData]="grid.gridData"
-                             [groupById]="groupModel?.id"
-                             [rowsNumber]="grid.rows"
-                             [showColumnIds]="showColumnIds"></ct-reports-grid>
 
-            <div *ngIf="reportsGridData?.groupedItems.length == 0" class="ct-nodata">
-                Sorry, you don't have any reports at this time period.
+        <div *ngIf="reportDropdowns">
+            <div class="ct-reports-sidebar" (window:resize)="onResize()">
+                <div class="ct-reports-sidebar-container"
+                     slimScroll #slimScroll='slimScroll' [ctSlimScrollArrows]="slimScroll">
+                    <div class="ct-sidebar-block">
+                        <h3 class="ct-header">Filters</h3>
+                        <div class="ct-reports-time-period-block">
+                            <div class="ct-reports-time-period">
+                                <a class="fa fa-angle-left" (click)="getNewPeriod(false)"></a>
+                                <div>
+                                    <span (click)="toggleRangeDatepicker()" [title]="dateString">{{dateString}}</span>
+                                    <i *ngIf="isDatepickerShown" class="fa fa-times" (click)="cancelUpdatingReportGrid()"></i>
+                                    <i *ngIf="!isDatepickerShown" class="fa fa-angle-down" (click)="toggleRangeDatepicker()"></i>
+                                </div>
+                                <a class="fa fa-angle-right" (click)="getNewPeriod()"></a>
+                            </div>
+                            <ct-range-datepicker *ngIf="isDatepickerShown"
+                                                 [class.ct-datepicker-opened]="isDatepickerAnimating"
+                                                 [dateResponse]="dateResponse"
+                                                 [datePeriodList]="reportDropdowns?.values.dateStatic"
+                                                 [firstDayOfWeek]="firstDayOfWeek"
+                                                 (clickOutside)="toggleRangeDatepicker($event)"
+                                                 (onPeriodChanged)="datePeriodOnChange($event)"
+                                                 (closed)="toggleRangeDatepicker()"></ct-range-datepicker>
+                        </div>
+
+                        <div class="ct-report-filters-block">
+                            <div>
+                                <ct-multiselect
+                                        [panelStyleClass]="'ct-reports-multiselect ct-clients' + (impersonationService.impersonationUser ? ' ct-impersonate' : '')"
+                                        [(ngModel)]="reportQuery.clientIds"
+                                        (onSubmitAction)="toggleClient(reportQuery.clientIds)"
+                                        [showSubmitButton]="true"
+                                        [appendTo]="'body'"
+                                        [defaultLabel]="'All Clients'"
+                                        [options]="clientItems"
+                                        [extraActionTitle]="showOnlyActiveClients ? 'Show archived' : 'Hide archived'"
+                                        (onExtraAction)="toggleArchivedClients()"
+                                        [maxSelectedLabels]="'1'"
+                                        [selectedItemsLabel]="'Clients ({0})'">
+                                </ct-multiselect>
+                            </div>
+                            <div>
+                                <ct-multiselect
+                                        [panelStyleClass]="'ct-reports-multiselect ct-projects' + (impersonationService.impersonationUser ? ' ct-impersonate' : '')"
+                                        [(ngModel)]="reportQuery.projectIds"
+                                        (onSubmitAction)="toggleProject(reportQuery.projectIds)"
+                                        [showSubmitButton]="true"
+                                        [appendTo]="'body'"
+                                        [defaultLabel]="'All Projects'"
+                                        [options]="projectItems"
+                                        [extraActionTitle]="showOnlyActiveProjects ? 'Show archived' : 'Hide archived'"
+                                        (onExtraAction)="toggleArchivedProjects()"
+                                        [maxSelectedLabels]="'1'"
+                                        [selectedItemsLabel]="'Projects ({0})'">
+                                </ct-multiselect>
+                            </div>
+                            <div>
+                                <ct-multiselect
+                                        *ngIf="isUsersFilterShown"
+                                        [panelStyleClass]="'ct-reports-multiselect ct-users' + (impersonationService.impersonationUser ? ' ct-impersonate' : '')"
+                                        [(ngModel)]="reportQuery.memberIds"
+                                        (onSubmitAction)="toggleUser()"
+                                        [showSubmitButton]="true"
+                                        [appendTo]="'body'"
+                                        [defaultLabel]="'All Users'"
+                                        [options]="userItems"
+                                        [extraActionTitle]="showOnlyActiveUsers ? 'Show archived' : 'Hide archived'"
+                                        (onExtraAction)="toggleArchivedUsers()"
+                                        [maxSelectedLabels]="'1'"
+                                        [selectedItemsLabel]="'Users ({0})'">
+                                </ct-multiselect>
+                            </div>
+                        </div>
+
+                        <div class="ct-report-filters-block">
+                            <label class="ct-filter-label">Group by</label>
+                            <ct-select [name]="'groupBy'"
+                                       [defaultValue]="'Date'"
+                                       [displayName]="'description'" [trackBy]="'id'"
+                                       [(ngModel)]="groupModel"
+                                       (change)="groupByChange()"
+                                       [options]="groupByItems">
+                            </ct-select>
+                        </div>
+
+                        <div class="ct-query-block">
+                            <div class="ct-report-query-links">
+                                <button type="button" class="ct-reports-reset-link" title="Clear filters"
+                                        (click)="resetFilters()">
+                                    <i class="material-icons">clear</i><span>Clear filters</span>
+                                </button>
+                                <button type="button" class="ct-query-add-box" title="Save query"
+                                        (click)="openQueryDialog()">
+                                    <i class="material-icons">star</i><span>Save query</span>
+                                </button>
+                            </div>
+
+                            <ct-select *ngIf="queryItems.length"
+                                       [name]="'query'" [defaultValue]="'Select Saved Query'"
+                                       [displayName]="'queryName'" [trackBy]="'queryId'"
+                                       [(ngModel)]="queryModel"
+                                       (change)="queryOnChange(queryModel)"
+                                       [options]="queryItems">
+                            </ct-select>
+                            <span *ngIf="queryModel" class="ct-delete-icon material-icons" title="Delete query"
+                                  (click)="deleteQuery(queryModel)">clear</span>
+                        </div>
+                    </div>
+                    <div *ngIf="reportGridData?.timeTotal.timeActualTotal > 0" class="ct-sidebar-block">
+                        <h3 class="ct-header">Stats</h3>
+
+                        <ul class="ct-reports-chart-block">
+                            <li *ngFor="let grid of reportGridData?.groupedItems">
+                                <ng-template [ngIf]="reportQuery.groupById === 2">
+                                    <ct-user-pic [urlIcon]="grid.groupByType.memberUrlIcon"></ct-user-pic>
+                                    <div class="ct-reports-chart-title">{{grid.groupByType.memberName}}</div>
+
+                                    <div class="ct-reports-chart-value">
+                                        <ct-chart [style.width]="getChartWidth(grid.groupByType.workingHoursPerDay)"
+                                                  [totalValue]="calcTotalActualTime(grid.groupByType.workingHoursPerDay)"
+                                                  [value]="grid.timeTotalFor.timeActualTotalFor"></ct-chart>
+                                        <div class="ct-reports-chart-number">
+                                            {{calcTrackedHours(grid.timeTotalFor.timeActualTotalFor)}}h
+                                        </div>
+                                    </div>
+                                </ng-template>
+
+                                <ng-template [ngIf]="reportQuery.groupById !== 2">
+                                    <div *ngIf="reportQuery.groupById === 1" class="ct-reports-chart-title">
+                                        {{grid.groupByType.projectName}}
+                                    </div>
+                                    <div *ngIf="reportQuery.groupById === 3" class="ct-reports-chart-title">
+                                        {{formatDate(grid.groupByType.date)}}
+                                    </div>
+                                    <div *ngIf="reportQuery.groupById === 4" class="ct-reports-chart-title">
+                                        {{grid.groupByType.clientName}}
+                                    </div>
+
+                                    <div class="ct-reports-chart-value">
+                                        <ct-chart [style.width]="getChartWidth(grid.timeTotalFor.timeActualTotalFor)"
+                                                  [value]="grid.timeTotalFor.timeActualTotalFor"></ct-chart>
+                                        <div class="ct-reports-chart-number">
+                                            {{calcTrackedHours(grid.timeTotalFor.timeActualTotalFor)}}h
+                                        </div>
+                                    </div>
+                                </ng-template>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div *ngIf="reportsGridData?.timeTotal.timeActualTotal > 0" class="ct-grid-container ct-total-time-container">
-            <label>Total</label>
-            <div class="ui-datatable-tablewrapper">
-                <table>
-                    <tr>
-                        <td *ngIf="groupModel?.id != 3 && showColumnIds?.indexOf(2) > -1" class="ct-cell-date"></td>
-                        <td *ngIf="groupModel?.id != 4" class="ct-cell-client"></td>
-                        <td *ngIf="groupModel?.id != 1" class="ct-cell-project"></td>
-                        <td *ngIf="groupModel?.id != 2" class="ct-cell-user"></td>
-                        <td class="ct-cell-task"></td>
-                        <td *ngIf="showColumnIds?.indexOf(4) > -1" class="ct-cell-start"></td>
-                        <td *ngIf="showColumnIds?.indexOf(4) > -1" class="ct-cell-finish"></td>
+            <div class="ct-reports-grid-container">
+                <div class="ct-page-header">
+                    <h3 class="ct-header">Details</h3>
+                    <ct-multiselect class="ct-columns-multiselect ct-icon ct-settings-icon" title="Columns settings"
+                                    [styleClass]="'ct-reports-settings-multiselect'"
+                                    [(ngModel)]="reportQuery.showColumnIds"
+                                    (onSubmitAction)="submitSettings(reportQuery.showColumnIds)"
+                                    [showSubmitButton]="true"
+                                    [showActionsPanel]="false"
+                                    [showFilterSearch]="false"
+                                    [appendTo]="'body'"
+                                    [options]="showColumnItems">
+                    </ct-multiselect>
+                    <div class="ct-btn-block">
+                        <i class="ct-icon ct-export-icon" title="Export reports" area-hidden="true"
+                           (click)="menu.toggleMenu()"></i>
+                        <ct-menu #menu [xPosition]="'after'" class="ct-actions-drop-menu">
+                            <ct-menu-item>
+                                <a mat-ripple (click)="exportAs(0)">Export as Excel</a>
+                            </ct-menu-item>
+                            <!--<ct-menu-item>-->
+                            <!--<a mat-ripple (click)="exportAs(1)">Export as CSV</a>-->
+                            <!--</ct-menu-item>-->
+                            <ct-menu-item>
+                                <a mat-ripple (click)="exportAs(2)">Export as PDF</a>
+                            </ct-menu-item>
+                        </ct-menu>
+                        <i class="ct-icon ct-printer-icon" title="Print page" area-hidden="true"
+                           (click)="checkDataAndPrintPage()"></i>
+                        <i class="ct-icon ct-mail-icon" title="Send reports" area-hidden="true"
+                           (click)="openSendReportsDialog()"></i>
+                    </div>
+                </div>
 
-                        <td class="ct-cell-actual">
-                            <div class="ct-total-hours-tracked">
-                                <span>{{getTimeString(reportsGridData?.timeTotal.timeActualTotal, true)}}</span>
-                            </div>
-                        </td>
+                <div class="ct-reports-data" #scrollContainer>
+                    <ct-reports-grid *ngFor="let grid of gridData"
+                                     class="ct-reports-grid"
+                                     [gridData]="grid.gridData"
+                                     [groupById]="groupModel?.id"
+                                     [rowsNumber]="grid.rows"
+                                     [showColumnIds]="showColumnIds"></ct-reports-grid>
+                </div>
 
-                        <td *ngIf="showColumnIds?.indexOf(1) > -1" class="ct-cell-estimated">
-                            <div class="ct-total-hours-planned" *ngIf="showColumnIds?.indexOf(1) > -1">
-                                <span>{{getTimeString(reportsGridData?.timeTotal.timeEstimatedTotal)}}</span>
-                            </div>
-                        </td>
+                <div *ngIf="reportGridData?.timeTotal.timeActualTotal > 0" class="ct-total-footer">
+                    <label class="ct-reports-grid-header">Total hours</label>
 
-                        <td *ngIf="showColumnIds?.indexOf(3) > -1"></td>
-                    </tr>
-                </table>
+                    <div class="ct-total-time-container">
+                        <span *ngIf="reportGridData.timeTotal.timeEstimatedTotal > 0" class="ct-calendar-hours-planned" title="Total estimated hours">
+                            {{getTimeString(reportGridData?.timeTotal.timeEstimatedTotal)}}
+                        </span>
+                        <span *ngIf="getTimeString(reportGridData?.timeTotal.timeActualTotal, true)" class="ct-calendar-hours-tracked" title="Total actual hours">
+                            {{getTimeString(reportGridData?.timeTotal.timeActualTotal, true)}}
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

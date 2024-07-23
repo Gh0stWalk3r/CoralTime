@@ -1,0 +1,87 @@
+{
+  "manifestVersion": 1,
+  "id": "CoralTimeTracker",
+  "version": "0.0.8.31",
+  "publisher": "CoralTimeExtDev",
+  "name": "CoralTime Tracker",
+  "description": "Track your time in CoralTime",
+  "public": false,
+  "icons": {
+    "default": "static/img/logo.png"
+  },
+  "categories": [
+    "Plan and track"
+  ],
+  "tags": [
+    "work",
+    "track time"
+  ],
+  "content": {
+    "details": {
+      "path": "overview.md"
+    }
+  },
+  "links": {
+    "repository": {
+      "uri": "https://github.com/CoralTime/CoralTime"
+    },
+    "issues": {
+      "uri": "https://github.com/CoralTime/CoralTime/issues"
+    },
+    "support": {
+      "uri": "https://coralteq.com"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "uri": "https://github.com/CoralTime/CoralTime"
+  },
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "scopes": [
+    "vso.work"
+  ],
+  "contributions": [
+    {
+      "id": "CoralTime",
+      "type": "ms.vss-work-web.work-item-form-page",
+      "description": "Track your time in CoralTime",
+      "targets": [
+        "ms.vss-work-web.work-item-form"
+      ],
+      "properties": {
+        "name": "CoralTime",
+        "uri": "static/coraltime-index.html"
+      }
+    }
+  ],
+  "files": [
+    {
+      "addressable": true,
+      "path": "static/coraltime-index.html"
+    },
+    {
+      "addressable": true,
+      "path": "static/css"
+    },
+    {
+      "addressable": true,
+      "path": "static/img"
+    },
+    {
+      "addressable": true,
+      "path": "static/lib"
+    },
+    {
+      "path": "dist",
+      "addressable": true
+    },
+    {
+      "addressable": true,
+      "path": "src"
+    }
+  ]
+}

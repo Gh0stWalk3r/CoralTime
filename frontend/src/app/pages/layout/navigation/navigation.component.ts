@@ -1,14 +1,14 @@
-import { AclService } from '../../../core/auth/acl.service';
-import { ProjectsService } from '../../../services/projects.service';
-import { Subscription } from 'rxjs/Subscription';
-import { AuthUser } from '../../../core/auth/auth-user';
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs/Subscription';
+import { User } from '../../../models/user';
+import { AclService } from '../../../core/auth/acl.service';
+import { AuthUser } from '../../../core/auth/auth-user';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AuthGuard } from '../../../core/auth/auth-guard.service';
-import { MenuComponent } from '../../../shared/menu/menu.component';
 import { ImpersonationService } from '../../../services/impersonation.service';
+import { ProjectsService } from '../../../services/projects.service';
 import { UsersService } from '../../../services/users.service';
-import { User } from '../../../models/user';
+import { LoadingMaskService } from '../../../shared/loading-indicator/loading-mask.service';
 
 interface MenuItem {
 	label?: string;
@@ -22,13 +22,13 @@ const FULL_MANAGE_ITEMS = [
 		label: 'Projects',
 		icon: 'ct-projects-icon',
 		routerLink: ['/projects'],
-		permission: 'roleAssignProjectMember'
+		permission: 'roleViewProject'
 	},
 	{
 		label: 'Clients',
 		icon: 'ct-clients-icon',
 		routerLink: ['/clients'],
-		permission: 'roleAddClient'
+		permission: 'roleViewClient'
 
 	},
 	{
@@ -42,6 +42,18 @@ const FULL_MANAGE_ITEMS = [
 		icon: 'ct-users-icon',
 		routerLink: ['/users'],
 		permission: 'roleViewMember'
+	},
+	{
+		label: 'Admin',
+		icon: 'ct-admin-icon',
+		routerLink: ['/admin'],
+		permission: 'roleViewAdminPanel'
+	},
+	{
+		label: 'VSTS Integration',
+		icon: 'ct-integration-icon',
+		routerLink: ['/vsts-integration'],
+		permission: 'roleViewIntegrationPage'
 	}
 ];
 
@@ -51,24 +63,22 @@ const FULL_MANAGE_ITEMS = [
 })
 
 export class NavigationComponent implements OnInit, OnDestroy {
+	authUser: AuthUser;
+	impersonationUser: User;
 	items: MenuItem[];
 	manageItems: MenuItem[];
-	authUser: AuthUser;
 	showManageMenu: boolean = false;
-	isProfileNavMenuOpen: boolean = false;
-	isManageMenuOpen: boolean = false;
 	userInfo: User;
 	windowWidth: number;
 
-	impersonationUser: User;
-
-	private subscriptionUserInfo: Subscription;
 	private subscriptionImpersonation: Subscription;
+	private subscriptionUserInfo: Subscription;
 
 	constructor(private authService: AuthService,
 	            private aclService: AclService,
 	            private auth: AuthGuard,
 	            private impersonationService: ImpersonationService,
+	            private loadingService: LoadingMaskService,
 	            private projectsService: ProjectsService,
 	            private usersService: UsersService) {
 	}
@@ -102,12 +112,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
 	}
 
 	isMobileView(): boolean {
-		return this.windowWidth <= 700;
+		return this.windowWidth < 810;
 	}
 
 	getUserInfo(): void {
+		this.loadingService.addLoading();
 		this.usersService.getUserInfo(this.authUser.id).then((userInfo: User) => {
-			this.userInfo =  userInfo;
+			this.loadingService.removeLoading();
+			this.userInfo = userInfo;
 		});
 	}
 
@@ -135,24 +147,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
 		if (this.aclService.isGranted('roleAddProject')) {
 			this.showManageMenu = true;
 			this.authService.isUserAdminOrManager = true;
-			return;
 		}
 
-		this.projectsService.getManagerProjectsCount().subscribe(count => {
-			this.showManageMenu = !!count;
-			this.authService.isUserAdminOrManager = !!count;
-			this.authService.adminOrManagerParameterOnChange.emit();
-		});
-	}
-
-	toggleManageMenu(manageMenu: MenuComponent): void {
-		manageMenu.toggleMenu();
-		this.isManageMenuOpen = !this.isManageMenuOpen;
-	}
-
-	toggleProfileNavMenu(profileNavMenu: MenuComponent): void {
-		profileNavMenu.toggleMenu();
-		this.isProfileNavMenuOpen = !this.isProfileNavMenuOpen;
+		this.loadingService.addLoading();
+		this.projectsService.getManagerProjectsCount()
+			.finally(() => this.loadingService.removeLoading())
+			.subscribe(count => {
+				this.showManageMenu = !!count;
+				this.authService.isUserAdminOrManager = !!count;
+				this.authService.adminOrManagerParameterOnChange.emit();
+			});
 	}
 
 	signOut(): void {
