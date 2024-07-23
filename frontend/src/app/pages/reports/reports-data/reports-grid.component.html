@@ -1,30 +1,19 @@
-<div *ngIf="gridData?.items.length > 0" class="ct-grid-header">
-    <div *ngIf="groupById == 1 && gridData.items.length">
-        <label>{{gridData?.groupByType.projectName}}</label>
+<div *ngIf="gridData?.items.length || isTotalsOnly" class="ct-grid-header clearfix">
+    <div *ngIf="groupById == 1 && (gridData?.items.length || isTotalsOnly)">
+        <span>{{gridData?.groupByType.projectName}}</span>
     </div>
-    <div *ngIf="groupById == 2">
-        <label class="ct-reports-grid-header">
-            <ct-user-pic [urlIcon]="gridData.groupByType.memberUrlIcon"></ct-user-pic>
-            {{gridData?.groupByType.memberName}}
-        </label>
+    <div *ngIf="groupById == 2 && (gridData?.items.length || isTotalsOnly)">
+        <span>{{gridData?.groupByType.memberName}}</span>
     </div>
-    <div *ngIf="groupById == 3">
-        <label class="ct-reports-grid-header">{{formatDate(gridData?.groupByType.date)}}</label>
+    <div *ngIf="groupById == 3 && (gridData?.items.length || isTotalsOnly)">
+        <span>{{formatDate(gridData?.groupByType.date)}}</span>
     </div>
-    <div *ngIf="groupById == 4">
-        <label class="ct-reports-grid-header">{{gridData?.groupByType.clientName}}</label>
-    </div>
-
-    <div *ngIf="gridData?.items.length" class="ct-total-time-container">
-        Total actual hours:
-        <span class="ct-total-hours-tracked" *ngIf="gridData.timeTotalFor">
-            {{getTimeString(gridData.timeTotalFor.timeActualTotalFor, true)}}
-        </span>
+    <div *ngIf="groupById == 4 && (gridData?.items.length || isTotalsOnly)">
+        <label *ngIf="gridData.groupByType.clientId !== 0"></label><span>{{gridData?.groupByType.clientName}}</span>
     </div>
 </div>
 
-<p-dataTable class="ct-grid-container"
-             [emptyMessage]="'Sorry, you don\'t have any reports at this time period.'"
+<p-dataTable *ngIf="!isTotalsOnly" class="ct-grid-container ct-table"
              [value]="gridDataRows"
              [responsive]="true"
              [lazy]="true" (onLazyLoad)="loadLazy($event)">
@@ -78,3 +67,15 @@
         </ng-template>
     </p-column>
 </p-dataTable>
+
+<div class="ct-grid-container ct-total-time-container" *ngIf="groupById != 0 && (gridData?.items.length > 0 || isTotalsOnly)">
+    <label>
+        Total actual hours
+        <span *ngIf="!isTotalsOnly"> for&nbsp;{{gridData?.groupByType.projectName || gridData?.groupByType.memberName
+            || formatDate(gridData?.groupByType.date) || gridData?.groupByType.clientName}}</span>
+    </label>
+
+    <div class="ct-total-hours-tracked" *ngIf="gridData.timeTotalFor">
+        <span class="ct-actual-label">{{getTimeString(gridData.timeTotalFor.timeActualTotalFor, true)}}</span>
+    </div>
+</div>    

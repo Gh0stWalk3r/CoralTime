@@ -66,6 +66,7 @@ export class ReportsComponent implements OnInit {
 	showOnlyActiveClients: boolean = true;
 	showOnlyActiveProjects: boolean = true;
 	showOnlyActiveUsers: boolean = true;
+	isTotalsOnly: boolean = false;
 
 	showColumnItems: CustomSelectItem[];
 	showColumnIds: number[];
@@ -129,6 +130,7 @@ export class ReportsComponent implements OnInit {
 	setReportDropdowns(reportDropdowns: ReportDropdowns): void {
 		this.reportDropdowns = reportDropdowns;
 		this.rangeDatepickerService.dateStaticList = reportDropdowns.values.dateStatic;
+		this.isTotalsOnly = reportDropdowns.currentQuery.isTotalsOnly;
 
 		this.setReportFilters(reportDropdowns.currentQuery);
 		this.setReportGroupBy(reportDropdowns.values.groupBy);
@@ -165,7 +167,11 @@ export class ReportsComponent implements OnInit {
 	}
 
 	// GRID DISPLAYING
-
+	onTotalsOnlyChange(): void{
+		this.reportQuery.isTotalsOnly = !this.isTotalsOnly;
+		this.getReportGrid(!!this.reportQuery.queryId);
+	}
+	
 	getReportGrid(isCustomQuery?: boolean): void {
 		this.reportQuery.dateFrom = ReportsComponent.convertMomentToString(this.dateResponse.datePeriod.dateFrom);
 		this.reportQuery.dateTo = ReportsComponent.convertMomentToString(this.dateResponse.datePeriod.dateTo);
@@ -174,7 +180,7 @@ export class ReportsComponent implements OnInit {
 		if (!isCustomQuery) {
 			this.reportQuery.queryId = null;
 			this.reportQuery.queryName = null;
-			this.queryModel = null;
+			this.queryModel = null;			
 		}
 
 		const filters: ReportFiltersRequest = {
@@ -296,6 +302,7 @@ export class ReportsComponent implements OnInit {
 
 	openQueryDialog(): void {
 		this.reportsQueryRef = this.dialog.open(ReportsQueryFormComponent);
+		this.reportQuery.isTotalsOnly = this.isTotalsOnly;
 		this.reportsQueryRef.componentInstance.model = this.reportQuery;
 
 		this.reportsQueryRef.componentInstance.onSubmit.subscribe((response) => {
@@ -326,6 +333,7 @@ export class ReportsComponent implements OnInit {
 
 	queryOnChange(queryModel: ReportQuery): void {
 		this.setReportFilters(queryModel);
+		this.isTotalsOnly = queryModel.isTotalsOnly;
 		this.groupModel = this.groupByItems.find((group: GroupByItem) => group.id === this.reportQuery.groupById);
 
 		this.getReportGrid(true);
