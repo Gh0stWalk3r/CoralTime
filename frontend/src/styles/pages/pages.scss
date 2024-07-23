@@ -25,7 +25,6 @@ html, body {
 
 .ct-page-container {
   position: relative;
-  min-height: 100%;
 }
 
 .ct-page-header {
@@ -150,10 +149,6 @@ html, body {
 
   .ct-grid-container .ui-datatable-scrollable-body {
     max-height: calc(100vh - 304px);
-  }
-
-  .ct-profile .ct-user-settings {
-    min-height: calc(100vh - 215px);
   }
 }
 

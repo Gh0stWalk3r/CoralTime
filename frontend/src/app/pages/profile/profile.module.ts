@@ -1,5 +1,4 @@
 import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { ProfileRoutingModule } from './profile-routing.module';
 import { ProfileComponent } from './profile.component';
 import { SharedModule } from '../../shared/shared.module';
@@ -12,11 +11,10 @@ import { FileUploadModule } from 'ng2-file-upload';
 
 @NgModule({
 	imports: [
-		CommonModule,
+		SharedModule,
 		ProfileRoutingModule,
 		FileUploadModule,
 		ImageCropperModule,
-		SharedModule
 	],
 	declarations: [
 		ProfileComponent,

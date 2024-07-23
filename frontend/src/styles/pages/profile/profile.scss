@@ -1,43 +1,171 @@
 @import 'profile-page';
 @import 'profile-settings';
 
-.ct-profile {
-  h2 {
-    display: inline-block;
-    font-family: inherit;
-    font-size: 15px;
-    color: $main-blue;
-  }
-
-  .ct-page-header {
-    position: relative;
-    height: 30px;
-    line-height: 30px;
-    border-bottom: 3px solid #f1f1f1;
-  }
-
+.ct-profile-page {
   .ct-page-content {
-    padding-top: 20px;
+    display: flex;
+    justify-content: space-between;
 
-    > div {
-      padding: 20px;
-      box-sizing: border-box;
+    > * {
+      width: calc(50% - 15px);
     }
   }
 
-  .ct-user-pic-container {
-    float: left;
-    width: 320px;
-    text-align: center;
-
-    .ct-link-text {
-      margin-top: 15px;
-    }
+  .ct-profile-block {
+    background: #fff;
+    border-radius: 5px;
+    margin-bottom: 30px;
   }
 
   .ct-user-settings {
     min-height: calc(100vh - 165px);
     margin-left: 320px;
     border-left: 3px solid #f1f1f1;
+  }
+}
+
+.ct-profile-projects {
+  display: flex;
+  flex-direction: column;
+
+  .ct-header {
+    position: relative;
+    padding: 40px 25px 0;
+    z-index: 1;
+  }
+
+  .ct-grid-row-border tbody tr:not(.ct-loading-block) td:first-child {
+    &:before, &:after {
+      width: calc(50vw - 90px);
+    }
+  }
+
+  .ct-grid-count {
+    background: none;
+    width: 35px;
+  }
+
+  .ct-view-members {
+    margin-left: 25px;
+    padding: 9px 18px;
+    background-color: #fff;
+    border-radius: 18px;
+    cursor: pointer;
+
+    &:hover, &.ct-select-opened {
+      background-color: $main-blue;
+      color: #fff;
+    }
+  }
+
+  .ct-project-members-select {
+    position: absolute;
+    right: 0;
+    top: 0;
+
+    .ct-select {
+      display: none;
+    }
+
+    .ct-select-options-list {
+      width: 270px;
+      top: 30px;
+    }
+
+    ct-user-pic {
+      margin-right: 5px;
+      top: -2px;
+      vertical-align: middle;
+    }
+
+    .ct-show-to-top .ct-select-options-list {
+      position: absolute;
+      top: auto;
+      bottom: calc(100% + 12px);
+      right: 0;
+    }
+  }
+}
+
+.ct-profile-settings {
+  .ct-profile-block {
+    padding: 40px;
+  }
+
+  .ct-header {
+    width: 100%;
+    margin-bottom: 30px;
+  }
+
+  .ct-form {
+    display: inline-block;
+    width: 100%;
+    max-width: 470px;
+
+    > div:first-child label {
+      margin-top: 10px;
+    }
+  }
+
+  .ct-form-block {
+    position: relative;
+    max-width: 290px;
+  }
+
+  .ct-reset-password-button {
+    margin-top: 25px;
+
+    & + .ct-hint-text {
+      position: absolute;
+      margin-top: 5px;
+    }
+  }
+
+  .mat-checkbox-label {
+    font-weight: bold;
+  }
+
+  .mat-checkbox-layout {
+    margin-top: 25px;
+  }
+
+  .ct-error-text {
+    margin-top: 5px;
+  }
+}
+
+.ct-user-pic-container {
+  float: right;
+  width: 320px;
+  text-align: center;
+
+  .ct-link-text {
+    width: 100%;
+    margin-top: 18px;
+  }
+}
+
+.ct-result-message {
+  display: inline-block;
+  position: absolute;
+  left: calc(100% + 20px);
+  top: 25px;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: bold;
+
+  .fa {
+    margin-right: 5px;
+  }
+
+  &.ct-success {
+    color: $main-blue;
+  }
+
+  &.ct-error {
+    color: $error-text;
   }
 }

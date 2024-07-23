@@ -71,16 +71,20 @@ h5 {
 
 //===========================
 
-.clearfix {
-  &:after {
-    content: "";
-    display: table;
-    clear: both;
-  }
+.clearfix:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.ct-header {
+  font-weight: bold;
+  font-size: 24px;
+  color: $dark-blue;
 }
 
 .ct-full-width {
-  width: 100% !important;
+  width: 100%;
 }
 
 .ct-bold {
@@ -102,33 +106,28 @@ h5 {
 }
 
 .ct-link-text {
+  display: inline-block;
   background: none;
   padding: 0;
   cursor: pointer;
-  color: #374456;
-  text-decoration: none;
   border: none;
-  border-bottom: 1px dotted;
-  display: inline-block;
-  line-height: 15px;
-  text-transform: capitalize;
   font-family: inherit;
+  font-weight: bold;
+  color: $main-grey;
+  text-transform: capitalize;
 
   &:focus, &:hover {
     outline: none;
-    color: $main-blue;
-    border-bottom-color: $main-blue;
+    color: $black;
   }
 }
 
 .ct-form-label {
-  color: $main-blue;
   display: block;
-  margin: 0;
-  padding: 12px 0;
+  margin-top: 23px;
+  padding-bottom: 2px;
   font-size: $smallFont;
-  font-family: inherit;
-  text-transform: uppercase;
+  color: $grid-text;
 }
 
 .ct-info-message {
@@ -195,7 +194,7 @@ h5 {
 }
 
 .ct-primary-button:hover, .ct-primary-button:active, .ct-primary-button.active {
-  background: $primary-btn-hover !important;
+  background: $main-blue-hover !important;
   color: $primary-btn-text;
 }
 
@@ -274,33 +273,6 @@ h5 {
   font-family: inherit;
   font-size: 14px;
   color: #374456;
-}
-
-.ct-paginator-container {
-  position: fixed;
-  bottom: 19px;
-  height: 25px;
-  right: 20px;
-  left: 20px;
-  width: calc(100% - 40px);
-  border-top: 1px solid $border-color;
-  padding-top: 17px;
-
-  .ct-paginator-label {
-    position: relative;
-    bottom: 0;
-  }
-
-  .ui-paginator {
-    display: inline-block;
-    border: 0;
-    background: none;
-  }
-
-  .ui-paginator-page.ui-state-active {
-    background: $primary-btn;
-    border-color: $primary-btn-hover;
-  }
 }
 
 .slimscroll-grid {
@@ -386,6 +358,21 @@ h5 {
     right: -20px;
   }
 
+  &.ct-view-members {
+    position: relative;
+
+    &:after {
+      position: absolute;
+      top: 9px;
+      left: -25px;
+      height: 20px;
+      width: 20px;
+      content: "";
+      background-image: url(./assets/rolling-blue.gif);
+      background-size: 20px;
+    }
+  }
+
   .ct-select .fa:before {
     display: block;
     content: '';
@@ -433,6 +420,17 @@ h5 {
       background-size: contain;
     }
   }
+
+  &.ct-result-message i {
+    &:before {
+      display: block;
+      content: '';
+      width: 18px;
+      height: 18px;
+      background: url(./assets/rolling-blue.gif) no-repeat center;
+      background-size: contain;
+    }
+  }
 }
 
 .ct-color-empty {
@@ -458,9 +456,8 @@ h5 {
 }
 
 .ct-hint-text {
-  font-family: inherit;
-  color: rgba(0, 0, 0, 0.5);
-  font-size: 13px;
+  color: $grid-text;
+  font-size: 12px;
 }
 
 .ct-see-more {

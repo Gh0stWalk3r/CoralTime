@@ -1,9 +1,7 @@
 .ct-select-component {
-  //Added to allow select be focused
-  margin-top: -16px;
   height: $selectHeight;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: bold;
 
   .ct-select-options-list {
     position: relative;
@@ -26,14 +24,18 @@
       cursor: pointer;
     }
 
+    .slimscroll-wrapper {
+      display: flex !important;
+    }
+
+    .slimscroll-grid {
+      position: relative !important;
+    }
+
     .ct-select-options-wrapper {
       max-height: 145px;
       transition-duration: .3s;
-    }
-
-    .slimscroll-wrapper {
-      float: left;
-      margin: 0 0 -2px 0 !important;
+      flex: 1 0 0;
     }
 
     .ct-select-option {
@@ -44,7 +46,7 @@
         top: 0;
         bottom: 0;
         left: 15px;
-        right: 30px;
+        right: 15px;
         content: '';
         border-radius: 2px;
       }
@@ -61,7 +63,7 @@
     .mat-list-item-content {
       min-height: 35px;
       padding: 10px 45px 10px 30px !important;
-      color: $formInputColor;
+      color: $grid-text;
       cursor: pointer;
     }
 
@@ -81,11 +83,11 @@
   .ct-select-selected-options-text {
     box-sizing: border-box;
     font-size: $baseFont;
-    padding: 0 16px 0 9px;
+    padding-right: 16px;
     height: 100%;
     width: 100%;
     line-height: $selectHeight;
-    color: $grid-text;
+    color: $inputColor;
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -139,7 +141,7 @@
   height: $selectHeight;
   font-size: 14px;
   background-color: #fff;
-  border: 1px solid $form-border;
+  border-bottom: 2px solid $inputBorderColor;
   cursor: pointer;
   box-sizing: border-box;
 

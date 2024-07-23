@@ -1,28 +1,6 @@
 .ct-dialog {
   font-family: inherit;
 
-  .ct-grid {
-    margin: 0 -30px;
-    overflow: hidden;
-  }
-
-  .ui-datatable table {
-    table-layout: auto;
-  }
-
-  .ct-popup-table-wrapper {
-    .ui-datatable-scrollable-body {
-      max-height: calc((100vh - 325px) / 2);
-      overflow: hidden;
-    }
-
-    .ct-grid-container:only-child {
-      .ui-datatable-scrollable-body {
-        max-height: calc(100vh - 250px);
-      }
-    }
-  }
-
   .ct-dialog-message {
     margin: 30px 0 20px;
   }
@@ -44,7 +22,7 @@
       padding-left: 30px;
       font-size: inherit;
       font-weight: 700;
-      color: $formInputColor;
+      color: $inputColor;
       border-bottom: 2px solid $gray-page-background;
 
       &::-webkit-input-placeholder {
@@ -219,70 +197,7 @@
     }
   }
 
-  .ct-assignment-form {
-    > .ct-button {
-      margin-top: 20px;
-    }
-
-    table {
-      thead {
-        th {
-          padding: 5px 8px 2px 0;
-        }
-      }
-    }
-  }
-
   .ct-form {
-    margin-bottom: 20px;
-    font-family: inherit;
-
-    .ct-form-container .ct-grid-container {
-      padding: 0 15px 20px 36px;
-      background: $border-color;
-      position: relative;
-      top: -3px;
-      margin-top: 20px;
-      margin-bottom: 18px;
-
-      .ct-remove-task-button {
-        cursor: pointer;
-      }
-
-      > .ct-link {
-        margin-top: 10px;
-        display: inline-block;
-      }
-
-      h4 {
-        margin: 0 0 20px;
-      }
-
-      table {
-        tr, tr:hover {
-          background-color: transparent !important;
-        }
-
-        tr {
-          > td:nth-child(1) {
-            .ct-select-component {
-              width: 283px;
-            }
-          }
-
-          > td {
-            padding: 5px 15px 5px 0 !important;
-          }
-        }
-
-        thead {
-          th {
-            padding: 20px 8px 7px 11px !important;
-          }
-        }
-      }
-    }
-
     .ct-hide-form {
       display: none;
     }
@@ -385,8 +300,11 @@
 }
 
 .ct-data-dialog {
+  display: flex;
+  flex-direction: column;
   width: 900px;
   height: calc(100vh - 100px);
+  margin-bottom: -25px;
 
   &.ct-small-data-dialog {
     width: 600px;
@@ -428,6 +346,29 @@
     > span:nth-child(2) {
       max-width: 350px;
     }
+  }
+
+  .ct-grid {
+    display: flex;
+    flex: 1 0 0;
+    margin: 0 -30px;
+  }
+
+  .ct-popup-table-wrapper {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  .ui-datatable table {
+    table-layout: auto;
+  }
+
+  .ct-grid-container {
+    flex: 1 0 0;
+    min-height: 0;
   }
 
   .ui-widget-content {
@@ -479,10 +420,6 @@
     }
 
     .ct-select-option {
-      &:before {
-        right: 15px !important;
-      }
-
       .mat-list-item-content {
         padding-right: 30px !important;
       }
@@ -519,12 +456,82 @@
   }
 
   .ct-grid-container {
-    display: block;
     margin-top: 20px;
 
     .ui-datatable-tablewrapper, .ui-datatable-scrollable-wrapper {
       th {
         padding: 15px 8px;
+      }
+    }
+  }
+}
+
+ct-project-tasks-form {
+  margin: 15px 0 -10px;
+}
+
+.ct-projects-tasks-form {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+
+  li {
+    margin-bottom: 10px;
+
+    > div {
+      display: inline-block;
+    }
+  }
+
+  .ct-input {
+    height: 30px;
+    width: calc(100% - 160px);
+  }
+
+  .ct-buttons-block {
+    height: 30px;
+    line-height: 30px;
+    padding: 0;
+    float: right;
+
+    > .ct-blue-button {
+      float: none;
+      width: 70px;
+      height: 30px;
+      min-width: 0;
+      line-height: 30px;
+    }
+
+    > .ct-cancel-button {
+      margin: 0 10px;
+    }
+  }
+
+  .ct-add-button {
+    margin-top: 13px;
+    color: $main-blue;
+    line-height: 28px;
+
+    .material-icons {
+      float: left;
+      margin-right: 10px;
+      background: $main-blue;
+    }
+
+    &:hover {
+      color: $main-blue-hover;
+
+      .material-icons {
+        background: $main-blue-hover;
+      }
+    }
+
+    &.ct-disabled {
+      color: $gray-text;
+      opacity: .5;
+
+      .material-icons {
+        background: $gray-text;
       }
     }
   }
@@ -767,8 +774,4 @@
       max-width: 330px;
     }
   }
-}
-
-.ct-project-tasks-dialog .ct-grid .ui-datatable-scrollable-body {
-  max-height: calc(90vh - 146px);
 }
